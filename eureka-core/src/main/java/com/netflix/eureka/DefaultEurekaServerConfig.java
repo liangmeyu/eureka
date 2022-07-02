@@ -37,7 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- *
  * A default implementation of eureka server configuration as required by
  * {@link EurekaServerConfig}.
  *
@@ -57,36 +56,44 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * @author Karthik Ranganathan
- *
  */
 @Singleton
 public class DefaultEurekaServerConfig implements EurekaServerConfig {
     private static final String ARCHAIUS_DEPLOYMENT_ENVIRONMENT = "archaius.deployment.environment";
     private static final String TEST = "test";
     private static final String EUREKA_ENVIRONMENT = "eureka.environment";
-    private static final Logger logger = LoggerFactory
-            .getLogger(DefaultEurekaServerConfig.class);
-    private static final DynamicPropertyFactory configInstance = com.netflix.config.DynamicPropertyFactory
-            .getInstance();
-    private static final DynamicStringProperty EUREKA_PROPS_FILE = DynamicPropertyFactory
-            .getInstance().getStringProperty("eureka.server.props",
-                    "eureka-server");
+    private static final Logger logger = LoggerFactory.getLogger(DefaultEurekaServerConfig.class);
+    private static final DynamicPropertyFactory configInstance =
+            com.netflix.config.DynamicPropertyFactory.getInstance();
+    // 要加载的eureka的配置文件的名字。默认是 eureka-server.properties
+    private static final DynamicStringProperty EUREKA_PROPS_FILE =
+            DynamicPropertyFactory.getInstance().getStringProperty("eureka.server.props", "eureka"
+                    + "-server");
     private static final int TIME_TO_WAIT_FOR_REPLICATION = 30000;
 
     private String namespace = "eureka.";
 
-    // These counters are checked for each HTTP request. Instantiating them per request like for the other
+    // These counters are checked for each HTTP request. Instantiating them per request like for
+    // the other
     // properties would be too costly.
     private final DynamicStringSetProperty rateLimiterPrivilegedClients =
-            new DynamicStringSetProperty(namespace + "rateLimiter.privilegedClients", Collections.<String>emptySet());
-    private final DynamicBooleanProperty rateLimiterEnabled = configInstance.getBooleanProperty(namespace + "rateLimiter.enabled", false);
-    private final DynamicBooleanProperty rateLimiterThrottleStandardClients = configInstance.getBooleanProperty(namespace + "rateLimiter.throttleStandardClients", false);
-    private final DynamicIntProperty rateLimiterBurstSize = configInstance.getIntProperty(namespace + "rateLimiter.burstSize", 10);
-    private final DynamicIntProperty rateLimiterRegistryFetchAverageRate = configInstance.getIntProperty(namespace + "rateLimiter.registryFetchAverageRate", 500);
-    private final DynamicIntProperty rateLimiterFullFetchAverageRate = configInstance.getIntProperty(namespace + "rateLimiter.fullFetchAverageRate", 100);
+            new DynamicStringSetProperty(namespace + "rateLimiter.privilegedClients",
+                    Collections.<String>emptySet());
+    private final DynamicBooleanProperty rateLimiterEnabled =
+            configInstance.getBooleanProperty(namespace + "rateLimiter.enabled", false);
+    private final DynamicBooleanProperty rateLimiterThrottleStandardClients =
+            configInstance.getBooleanProperty(namespace + "rateLimiter.throttleStandardClients",
+                    false);
+    private final DynamicIntProperty rateLimiterBurstSize =
+            configInstance.getIntProperty(namespace + "rateLimiter.burstSize", 10);
+    private final DynamicIntProperty rateLimiterRegistryFetchAverageRate =
+            configInstance.getIntProperty(namespace + "rateLimiter.registryFetchAverageRate", 500);
+    private final DynamicIntProperty rateLimiterFullFetchAverageRate =
+            configInstance.getIntProperty(namespace + "rateLimiter.fullFetchAverageRate", 100);
 
     private final DynamicStringProperty listAutoScalingGroupsRoleName =
-            configInstance.getStringProperty(namespace + "listAutoScalingGroupsRoleName", "ListAutoScalingGroups");
+            configInstance.getStringProperty(namespace + "listAutoScalingGroupsRoleName",
+                    "ListAutoScalingGroups");
 
     public DefaultEurekaServerConfig() {
         init();
@@ -97,23 +104,24 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
         init();
     }
 
+    /**
+     * 加载properties中的配置，放入ConfigurationManager，由ConfigurationManager管理
+     */
     private void init() {
-        String env = ConfigurationManager.getConfigInstance().getString(
-                EUREKA_ENVIRONMENT, TEST);
-        ConfigurationManager.getConfigInstance().setProperty(
-                ARCHAIUS_DEPLOYMENT_ENVIRONMENT, env);
+        // 获取环境，默认是test（为了拼接配置文件名：eureka-server-test.properties)
+        String env = ConfigurationManager.getConfigInstance().getString(EUREKA_ENVIRONMENT, TEST);
+        // 更新 archaius.deployment.environment 对应的是什么环境
+        ConfigurationManager.getConfigInstance().setProperty(ARCHAIUS_DEPLOYMENT_ENVIRONMENT, env);
 
+        // 要加载的eureka的配置文件的名字。默认是 eureka-server
         String eurekaPropsFile = EUREKA_PROPS_FILE.get();
         try {
-            // ConfigurationManager
-            // .loadPropertiesFromResources(eurekaPropsFile);
-            ConfigurationManager
-                    .loadCascadedPropertiesFromResources(eurekaPropsFile);
+            // 加载eureka-server.properties和eureka-server-环境.properties中的配置，加载到了Properties对象中去；
+            // eureka-server-环境.properties 覆盖 相同key的 eureka-server-环境.properties 配置
+            // 将加载出来的Properties中的配置项都放到ConfigurationManager中去，由ConfigurationManager管理
+            ConfigurationManager.loadCascadedPropertiesFromResources(eurekaPropsFile);
         } catch (IOException e) {
-            logger.warn(
-                    "Cannot find the properties specified : {}. This may be okay if there are other environment "
-                            + "specific properties or the configuration is installed with a different mechanism.",
-                    eurekaPropsFile);
+            logger.warn("Cannot find the properties specified : {}. This may be okay if there " + "are" + " " + "other environment " + "specific properties or the " + "configuration is " + "installed with a " + "different mechanism.", eurekaPropsFile);
         }
     }
 
@@ -124,8 +132,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public String getAWSAccessId() {
-        String aWSAccessId = configInstance.getStringProperty(
-                namespace + "awsAccessId", null).get();
+        String aWSAccessId =
+                configInstance.getStringProperty(namespace + "awsAccessId", null).get();
 
         if (null != aWSAccessId) {
             return aWSAccessId.trim();
@@ -142,8 +150,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public String getAWSSecretKey() {
-        String aWSSecretKey = configInstance.getStringProperty(
-                namespace + "awsSecretKey", null).get();
+        String aWSSecretKey =
+                configInstance.getStringProperty(namespace + "awsSecretKey", null).get();
 
         if (null != aWSSecretKey) {
             return aWSSecretKey.trim();
@@ -159,8 +167,7 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public int getEIPBindRebindRetries() {
-        return configInstance.getIntProperty(
-                namespace + "eipBindRebindRetries", 3).get();
+        return configInstance.getIntProperty(namespace + "eipBindRebindRetries", 3).get();
 
     }
 
@@ -171,8 +178,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public int getEIPBindingRetryIntervalMsWhenUnbound() {
-        return configInstance.getIntProperty(
-                namespace + "eipBindRebindRetryIntervalMsWhenUnbound", (1 * 60 * 1000)).get();
+        return configInstance.getIntProperty(namespace + "eipBindRebindRetryIntervalMsWhenUnbound"
+                , (1 * 60 * 1000)).get();
     }
 
     /*
@@ -182,8 +189,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public int getEIPBindingRetryIntervalMs() {
-        return configInstance.getIntProperty(
-                namespace + "eipBindRebindRetryIntervalMs", (5 * 60 * 1000)).get();
+        return configInstance.getIntProperty(namespace + "eipBindRebindRetryIntervalMs",
+                (5 * 60 * 1000)).get();
     }
 
     /*
@@ -193,8 +200,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public boolean shouldEnableSelfPreservation() {
-        return configInstance.getBooleanProperty(
-                namespace + "enableSelfPreservation", true).get();
+        // eureka.enableSelfPreservation = true
+        return configInstance.getBooleanProperty(namespace + "enableSelfPreservation", true).get();
     }
 
     /*
@@ -205,109 +212,103 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
      */
     @Override
     public int getPeerEurekaNodesUpdateIntervalMs() {
-        return configInstance
-                .getIntProperty(namespace + "peerEurekaNodesUpdateIntervalMs",
-                        (10 * 60 * 1000)).get();
+        // eureka.peerEurekaNodesUpdateIntervalMs = 10分钟
+        return configInstance.getIntProperty(namespace + "peerEurekaNodesUpdateIntervalMs",
+                (10 * 60 * 1000)).get();
     }
 
     @Override
     public int getRenewalThresholdUpdateIntervalMs() {
-        return configInstance.getIntProperty(
-                namespace + "renewalThresholdUpdateIntervalMs",
+        return configInstance.getIntProperty(namespace + "renewalThresholdUpdateIntervalMs",
                 (15 * 60 * 1000)).get();
     }
 
     @Override
     public double getRenewalPercentThreshold() {
-        return configInstance.getDoubleProperty(
-                namespace + "renewalPercentThreshold", 0.85).get();
+        // eureka.renewalPercentThreshold = 0.85
+        return configInstance.getDoubleProperty(namespace + "renewalPercentThreshold", 0.85).get();
     }
 
     @Override
     public boolean shouldEnableReplicatedRequestCompression() {
-        return configInstance.getBooleanProperty(
-                namespace + "enableReplicatedRequestCompression", false).get();
+        return configInstance.getBooleanProperty(namespace + "enableReplicatedRequestCompression"
+                , false).get();
     }
 
     @Override
     public int getNumberOfReplicationRetries() {
-        return configInstance.getIntProperty(
-                namespace + "numberOfReplicationRetries", 5).get();
+        return configInstance.getIntProperty(namespace + "numberOfReplicationRetries", 5).get();
     }
 
     @Override
     public int getPeerEurekaStatusRefreshTimeIntervalMs() {
-        return configInstance.getIntProperty(
-                namespace + "peerEurekaStatusRefreshTimeIntervalMs",
+        return configInstance.getIntProperty(namespace + "peerEurekaStatusRefreshTimeIntervalMs",
                 (30 * 1000)).get();
     }
 
     @Override
     public int getWaitTimeInMsWhenSyncEmpty() {
-        return configInstance.getIntProperty(
-                namespace + "waitTimeInMsWhenSyncEmpty", (1000 * 60 * 5)).get();
+        return configInstance.getIntProperty(namespace + "waitTimeInMsWhenSyncEmpty",
+                (1000 * 60 * 5)).get();
     }
 
     @Override
     public int getPeerNodeConnectTimeoutMs() {
-        return configInstance.getIntProperty(
-                namespace + "peerNodeConnectTimeoutMs", 200).get();
+        return configInstance.getIntProperty(namespace + "peerNodeConnectTimeoutMs", 200).get();
     }
 
     @Override
     public int getPeerNodeReadTimeoutMs() {
-        return configInstance.getIntProperty(
-                namespace + "peerNodeReadTimeoutMs", 200).get();
+        return configInstance.getIntProperty(namespace + "peerNodeReadTimeoutMs", 200).get();
     }
 
     @Override
     public int getPeerNodeTotalConnections() {
-        return configInstance.getIntProperty(
-                namespace + "peerNodeTotalConnections", 1000).get();
+        return configInstance.getIntProperty(namespace + "peerNodeTotalConnections", 1000).get();
     }
 
     @Override
     public int getPeerNodeTotalConnectionsPerHost() {
-        return configInstance.getIntProperty(
-                namespace + "peerNodeTotalConnectionsPerHost", 500).get();
+        return configInstance.getIntProperty(namespace + "peerNodeTotalConnectionsPerHost", 500).get();
     }
 
     @Override
     public int getPeerNodeConnectionIdleTimeoutSeconds() {
-        return configInstance.getIntProperty(
-                namespace + "peerNodeConnectionIdleTimeoutSeconds", 30).get();
+        return configInstance.getIntProperty(namespace + "peerNodeConnectionIdleTimeoutSeconds",
+                30).get();
     }
 
     @Override
     public long getRetentionTimeInMSInDeltaQueue() {
-        return configInstance.getLongProperty(
-                namespace + "retentionTimeInMSInDeltaQueue", (3 * 60 * 1000))
-                .get();
+        // eureka.retentionTimeInMSInDeltaQueue = 180
+        return configInstance.getLongProperty(namespace + "retentionTimeInMSInDeltaQueue",
+                (3 * 60 * 1000)).get();
     }
 
     @Override
     public long getDeltaRetentionTimerIntervalInMs() {
-        return configInstance.getLongProperty(
-                namespace + "deltaRetentionTimerIntervalInMs", (30 * 1000))
-                .get();
+
+        // eureka.deltaRetentionTimerIntervalInMs = 30
+        return configInstance.getLongProperty(namespace + "deltaRetentionTimerIntervalInMs",
+                (30 * 1000)).get();
     }
 
     @Override
     public long getEvictionIntervalTimerInMs() {
-        return configInstance.getLongProperty(
-                namespace + "evictionIntervalTimerInMs", (60 * 1000)).get();
+
+        // eureka.evictionIntervalTimerInMs = 60 * 1000
+        return configInstance.getLongProperty(namespace + "evictionIntervalTimerInMs",
+                (60 * 1000)).get();
     }
 
     @Override
     public int getASGQueryTimeoutMs() {
-        return configInstance.getIntProperty(namespace + "asgQueryTimeoutMs",
-                300).get();
+        return configInstance.getIntProperty(namespace + "asgQueryTimeoutMs", 300).get();
     }
 
     @Override
     public long getASGUpdateIntervalMs() {
-        return configInstance.getIntProperty(namespace + "asgUpdateIntervalMs",
-                (5 * 60 * 1000)).get();
+        return configInstance.getIntProperty(namespace + "asgUpdateIntervalMs", (5 * 60 * 1000)).get();
     }
 
     @Override
@@ -318,186 +319,181 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
 
     @Override
     public long getResponseCacheAutoExpirationInSeconds() {
-        return configInstance.getIntProperty(
-                namespace + "responseCacheAutoExpirationInSeconds", 180).get();
+        // eureka.responseCacheAutoExpirationInSeconds = null(180)
+        return configInstance.getIntProperty(namespace + "responseCacheAutoExpirationInSeconds",
+                180).get();
     }
 
     @Override
     public long getResponseCacheUpdateIntervalMs() {
-        return configInstance.getIntProperty(
-                namespace + "responseCacheUpdateIntervalMs", (30 * 1000)).get();
+        // eureka.responseCacheUpdateIntervalMs = null(30秒）
+        return configInstance.getIntProperty(namespace + "responseCacheUpdateIntervalMs",
+                (30 * 1000)).get();
     }
 
     @Override
     public boolean shouldUseReadOnlyResponseCache() {
-        return configInstance.getBooleanProperty(
-                namespace + "shouldUseReadOnlyResponseCache", true).get();
+        // eureka.shouldUseReadOnlyResponseCache = null(true)
+        return configInstance.getBooleanProperty(namespace + "shouldUseReadOnlyResponseCache",
+                true).get();
     }
 
     @Override
     public boolean shouldDisableDelta() {
-        return configInstance.getBooleanProperty(namespace + "disableDelta",
-                false).get();
+        // eureka.disableDelta = false
+        return configInstance.getBooleanProperty(namespace + "disableDelta", false).get();
     }
 
     @Override
     public long getMaxIdleThreadInMinutesAgeForStatusReplication() {
-        return configInstance
-                .getLongProperty(
-                        namespace + "maxIdleThreadAgeInMinutesForStatusReplication",
-                        10).get();
+        return configInstance.getLongProperty(namespace +
+                "maxIdleThreadAgeInMinutesForStatusReplication", 10).get();
     }
 
     @Override
     public int getMinThreadsForStatusReplication() {
-        return configInstance.getIntProperty(
-                namespace + "minThreadsForStatusReplication", 1).get();
+        return configInstance.getIntProperty(namespace + "minThreadsForStatusReplication", 1).get();
     }
 
     @Override
     public int getMaxThreadsForStatusReplication() {
-        return configInstance.getIntProperty(
-                namespace + "maxThreadsForStatusReplication", 1).get();
+        return configInstance.getIntProperty(namespace + "maxThreadsForStatusReplication", 1).get();
     }
 
     @Override
     public int getMaxElementsInStatusReplicationPool() {
-        return configInstance.getIntProperty(
-                namespace + "maxElementsInStatusReplicationPool", 10000).get();
+        return configInstance.getIntProperty(namespace + "maxElementsInStatusReplicationPool",
+                10000).get();
     }
 
     @Override
     public boolean shouldSyncWhenTimestampDiffers() {
-        return configInstance.getBooleanProperty(
-                namespace + "syncWhenTimestampDiffers", true).get();
+        return configInstance.getBooleanProperty(namespace + "syncWhenTimestampDiffers", true).get();
     }
 
     @Override
     public int getRegistrySyncRetries() {
-        return configInstance.getIntProperty(
-                namespace + "numberRegistrySyncRetries", 5).get();
+        // eureka.numberRegistrySyncRetries = 5
+        return configInstance.getIntProperty(namespace + "numberRegistrySyncRetries", 5).get();
     }
 
     @Override
     public long getRegistrySyncRetryWaitMs() {
-        return configInstance.getIntProperty(
-                namespace + "registrySyncRetryWaitMs", 30 * 1000).get();
+        // registrySyncRetryWaitMs = 30 * 1000
+        return configInstance.getIntProperty(namespace + "registrySyncRetryWaitMs", 30 * 1000).get();
     }
 
     @Override
     public int getMaxElementsInPeerReplicationPool() {
-        return configInstance.getIntProperty(
-                namespace + "maxElementsInPeerReplicationPool", 10000).get();
+        return configInstance.getIntProperty(namespace + "maxElementsInPeerReplicationPool",
+                10000).get();
     }
 
     @Override
     public long getMaxIdleThreadAgeInMinutesForPeerReplication() {
-        return configInstance.getIntProperty(
-                namespace + "maxIdleThreadAgeInMinutesForPeerReplication", 15)
-                .get();
+        return configInstance.getIntProperty(namespace +
+                "maxIdleThreadAgeInMinutesForPeerReplication", 15).get();
     }
 
     @Override
     public int getMinThreadsForPeerReplication() {
-        return configInstance.getIntProperty(
-                namespace + "minThreadsForPeerReplication", 5).get();
+        return configInstance.getIntProperty(namespace + "minThreadsForPeerReplication", 5).get();
     }
 
     @Override
     public int getMaxThreadsForPeerReplication() {
-        return configInstance.getIntProperty(
-                namespace + "maxThreadsForPeerReplication", 20).get();
+        return configInstance.getIntProperty(namespace + "maxThreadsForPeerReplication", 20).get();
     }
 
     @Override
     public int getMaxTimeForReplication() {
-        return configInstance.getIntProperty(
-                namespace + "maxTimeForReplication",
+        return configInstance.getIntProperty(namespace + "maxTimeForReplication",
                 TIME_TO_WAIT_FOR_REPLICATION).get();
     }
 
     @Override
     public boolean shouldPrimeAwsReplicaConnections() {
-        return configInstance.getBooleanProperty(
-                namespace + "primeAwsReplicaConnections", true).get();
+        return configInstance.getBooleanProperty(namespace + "primeAwsReplicaConnections", true).get();
     }
 
     @Override
     public boolean shouldDisableDeltaForRemoteRegions() {
-        return configInstance.getBooleanProperty(
-                namespace + "disableDeltaForRemoteRegions", false).get();
+        return configInstance.getBooleanProperty(namespace + "disableDeltaForRemoteRegions",
+                false).get();
     }
 
     @Override
     public int getRemoteRegionConnectTimeoutMs() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegionConnectTimeoutMs", 1000).get();
+        return configInstance.getIntProperty(namespace + "remoteRegionConnectTimeoutMs", 1000).get();
     }
 
     @Override
     public int getRemoteRegionReadTimeoutMs() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegionReadTimeoutMs", 1000).get();
+        return configInstance.getIntProperty(namespace + "remoteRegionReadTimeoutMs", 1000).get();
     }
 
     @Override
     public int getRemoteRegionTotalConnections() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegionTotalConnections", 1000).get();
+        return configInstance.getIntProperty(namespace + "remoteRegionTotalConnections", 1000).get();
     }
 
     @Override
     public int getRemoteRegionTotalConnectionsPerHost() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegionTotalConnectionsPerHost", 500).get();
+        return configInstance.getIntProperty(namespace + "remoteRegionTotalConnectionsPerHost",
+                500).get();
     }
 
     @Override
     public int getRemoteRegionConnectionIdleTimeoutSeconds() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegionConnectionIdleTimeoutSeconds", 30)
-                .get();
+        return configInstance.getIntProperty(namespace +
+                "remoteRegionConnectionIdleTimeoutSeconds", 30).get();
     }
 
     @Override
     public boolean shouldGZipContentFromRemoteRegion() {
-        return configInstance.getBooleanProperty(
-                namespace + "remoteRegion.gzipContent", true).get();
+        return configInstance.getBooleanProperty(namespace + "remoteRegion.gzipContent", true).get();
     }
 
     /**
-     * Expects a property with name: [eureka-namespace].remoteRegionUrlsWithName and a value being a comma separated
+     * Expects a property with name: [eureka-namespace].remoteRegionUrlsWithName and a value
+     * being a comma separated
      * list of region name & remote url pairs, separated with a ";". <br/>
-     * So, if you wish to specify two regions with name region1 & region2, the property value will be:
-     <PRE>
-     eureka.remoteRegionUrlsWithName=region1;http://region1host/eureka/v2,region2;http://region2host/eureka/v2
-     </PRE>
+     * So, if you wish to specify two regions with name region1 & region2, the property value
+     * will be:
+     * <PRE>
+     * eureka.remoteRegionUrlsWithName=region1;http://region1host/eureka/v2,region2;
+     * http://region2host/eureka/v2
+     * </PRE>
      * The above property will result in the following map:
-     <PRE>
-     region1->"http://region1host/eureka/v2"
-     region2->"http://region2host/eureka/v2"
-     </PRE>
-     * @return A map of region name to remote region URL parsed from the property specified above. If there is no
+     * <PRE>
+     * region1->"http://region1host/eureka/v2"
+     * region2->"http://region2host/eureka/v2"
+     * </PRE>
+     *
+     * @return A map of region name to remote region URL parsed from the property specified above
+     * . If there is no
      * property available, then an empty map is returned.
      */
     @Override
     public Map<String, String> getRemoteRegionUrlsWithName() {
         String propName = namespace + "remoteRegionUrlsWithName";
-        String remoteRegionUrlWithNameString = configInstance.getStringProperty(propName, null).get();
+        String remoteRegionUrlWithNameString =
+                configInstance.getStringProperty(propName, null).get();
         if (null == remoteRegionUrlWithNameString) {
             return Collections.emptyMap();
         }
 
         String[] remoteRegionUrlWithNamePairs = remoteRegionUrlWithNameString.split(",");
-        Map<String, String> toReturn = new HashMap<String, String>(remoteRegionUrlWithNamePairs.length);
+        Map<String, String> toReturn =
+                new HashMap<String, String>(remoteRegionUrlWithNamePairs.length);
 
         final String pairSplitChar = ";";
         for (String remoteRegionUrlWithNamePair : remoteRegionUrlWithNamePairs) {
             String[] pairSplit = remoteRegionUrlWithNamePair.split(pairSplitChar);
             if (pairSplit.length < 2) {
-                logger.error("Error reading eureka remote region urls from property {}. "
-                                + "Invalid entry {} for remote region url. The entry must contain region name and url "
-                                + "separated by a {}. Ignoring this entry.",
+                logger.error("Error reading eureka remote region urls from property {}. " +
+                                "Invalid entry {} for remote region url. The entry must contain" + " " +
+                                "region name and url " + "separated by a {}. Ignoring this entry.",
                         new String[]{propName, remoteRegionUrlWithNamePair, pairSplitChar});
             } else {
                 String regionName = pairSplit[0];
@@ -520,8 +516,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
 
     @Override
     public String[] getRemoteRegionUrls() {
-        String remoteRegionUrlString = configInstance.getStringProperty(
-                namespace + "remoteRegionUrls", null).get();
+        String remoteRegionUrlString = configInstance.getStringProperty(namespace +
+                "remoteRegionUrls", null).get();
         String[] remoteRegionUrl = null;
         if (remoteRegionUrlString != null) {
             remoteRegionUrl = remoteRegionUrlString.split(",");
@@ -537,8 +533,8 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
         } else {
             regionName = regionName.trim().toLowerCase();
         }
-        DynamicStringProperty appWhiteListProp =
-                configInstance.getStringProperty(namespace + "remoteRegion." + regionName + ".appWhiteList", null);
+        DynamicStringProperty appWhiteListProp = configInstance.getStringProperty(namespace +
+                "remoteRegion." + regionName + ".appWhiteList", null);
         if (null == appWhiteListProp || null == appWhiteListProp.get()) {
             return null;
         } else {
@@ -550,35 +546,32 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
 
     @Override
     public int getRemoteRegionRegistryFetchInterval() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegion.registryFetchIntervalInSeconds", 30)
-                .get();
+        return configInstance.getIntProperty(namespace + "remoteRegion" +
+                ".registryFetchIntervalInSeconds", 30).get();
     }
 
     @Override
     public int getRemoteRegionFetchThreadPoolSize() {
-        return configInstance.getIntProperty(
-                namespace + "remoteRegion.fetchThreadPoolSize", 20)
-                .get();
+        return configInstance.getIntProperty(namespace + "remoteRegion.fetchThreadPoolSize", 20).get();
     }
 
     @Override
     public String getRemoteRegionTrustStore() {
-        return configInstance.getStringProperty(
-                namespace + "remoteRegion.trustStoreFileName", "").get();
+        return configInstance.getStringProperty(namespace + "remoteRegion.trustStoreFileName",
+                "").get();
 
     }
 
     @Override
     public String getRemoteRegionTrustStorePassword() {
-        return configInstance.getStringProperty(
-                namespace + "remoteRegion.trustStorePassword", "changeit")
-                .get();
+        return configInstance.getStringProperty(namespace + "remoteRegion.trustStorePassword",
+                "changeit").get();
     }
 
     @Override
     public boolean disableTransparentFallbackToOtherRegion() {
-        return configInstance.getBooleanProperty(namespace + "remoteRegion.disable.transparent.fallback", false).get();
+        // eureka.remoteRegion.disable.transparent.fallback = null(false)
+        return configInstance.getBooleanProperty(namespace + "remoteRegion.disable.transparent" + ".fallback", false).get();
     }
 
     @Override
@@ -588,19 +581,18 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
 
     @Override
     public boolean shouldLogIdentityHeaders() {
-        return configInstance.getBooleanProperty(namespace + "auth.shouldLogIdentityHeaders", true).get();
+        return configInstance.getBooleanProperty(namespace + "auth.shouldLogIdentityHeaders",
+                true).get();
     }
 
     @Override
     public String getJsonCodecName() {
-        return configInstance.getStringProperty(
-                namespace + "jsonCodecName", null).get();
+        return configInstance.getStringProperty(namespace + "jsonCodecName", null).get();
     }
 
     @Override
     public String getXmlCodecName() {
-        return configInstance.getStringProperty(
-                namespace + "xmlCodecName", null).get();
+        return configInstance.getStringProperty(namespace + "xmlCodecName", null).get();
     }
 
     @Override
@@ -640,28 +632,25 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
 
     @Override
     public int getRoute53BindRebindRetries() {
-        return configInstance.getIntProperty(
-                namespace + "route53BindRebindRetries", 3).get();
+        return configInstance.getIntProperty(namespace + "route53BindRebindRetries", 3).get();
 
     }
 
     @Override
     public int getRoute53BindingRetryIntervalMs() {
-        return configInstance.getIntProperty(
-                namespace + "route53BindRebindRetryIntervalMs", (5 * 60 * 1000))
-                .get();
+        return configInstance.getIntProperty(namespace + "route53BindRebindRetryIntervalMs",
+                (5 * 60 * 1000)).get();
     }
 
     @Override
     public long getRoute53DomainTTL() {
-        return configInstance.getLongProperty(
-                namespace + "route53DomainTTL", 30l)
-                .get();
+        return configInstance.getLongProperty(namespace + "route53DomainTTL", 30l).get();
     }
 
     @Override
     public AwsBindingStrategy getBindingStrategy() {
-        return AwsBindingStrategy.valueOf(configInstance.getStringProperty(namespace + "awsBindingStrategy", AwsBindingStrategy.EIP.name()).get().toUpperCase());
+        return AwsBindingStrategy.valueOf(configInstance.getStringProperty(namespace +
+                "awsBindingStrategy", AwsBindingStrategy.EIP.name()).get().toUpperCase());
     }
 
     @Override
@@ -671,7 +660,7 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
 
     @Override
     public int getHealthStatusMinNumberOfAvailablePeers() {
-        return configInstance.getIntProperty(
-                namespace + "minAvailableInstancesForPeerReplication", -1).get();
+        return configInstance.getIntProperty(namespace + "minAvailableInstancesForPeerReplication"
+                , -1).get();
     }
 }

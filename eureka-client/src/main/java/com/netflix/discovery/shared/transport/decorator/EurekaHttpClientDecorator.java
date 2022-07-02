@@ -56,6 +56,7 @@ public abstract class EurekaHttpClientDecorator implements EurekaHttpClient {
         return execute(new RequestExecutor<Void>() {
             @Override
             public EurekaHttpResponse<Void> execute(EurekaHttpClient delegate) {
+                // delegate 其实是 metricsFactory.newClient()
                 return delegate.register(info);
             }
 

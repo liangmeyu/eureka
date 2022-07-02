@@ -47,7 +47,6 @@ import org.slf4j.LoggerFactory;
  * {@link com.netflix.discovery.shared.Application}.
  *
  * @author Karthik Ranganathan, Greg Kim
- *
  */
 @Produces({"application/xml", "application/json"})
 public class ApplicationResource {
@@ -58,8 +57,7 @@ public class ApplicationResource {
     private final PeerAwareInstanceRegistry registry;
     private final ResponseCache responseCache;
 
-    ApplicationResource(String appName,
-                        EurekaServerConfig serverConfig,
+    ApplicationResource(String appName, EurekaServerConfig serverConfig,
                         PeerAwareInstanceRegistry registry) {
         this.appName = appName.toUpperCase();
         this.serverConfig = serverConfig;
@@ -74,13 +72,11 @@ public class ApplicationResource {
     /**
      * Gets information about a particular {@link com.netflix.discovery.shared.Application}.
      *
-     * @param version
-     *            the version of the request.
-     * @param acceptHeader
-     *            the accept header of the request to indicate whether to serve
-     *            JSON or XML data.
+     * @param version      the version of the request.
+     * @param acceptHeader the accept header of the request to indicate whether to serve
+     *                     JSON or XML data.
      * @return the response containing information about a particular
-     *         application.
+     * application.
      */
     @GET
     public Response getApplication(@PathParam("version") String version,
@@ -98,13 +94,8 @@ public class ApplicationResource {
             keyType = Key.KeyType.XML;
         }
 
-        Key cacheKey = new Key(
-                Key.EntityType.Application,
-                appName,
-                keyType,
-                CurrentRequestVersion.get(),
-                EurekaAccept.fromString(eurekaAccept)
-        );
+        Key cacheKey = new Key(Key.EntityType.Application, appName, keyType,
+                CurrentRequestVersion.get(), EurekaAccept.fromString(eurekaAccept));
 
         String payLoad = responseCache.get(cacheKey);
 
@@ -120,8 +111,7 @@ public class ApplicationResource {
     /**
      * Gets information about a particular instance of an application.
      *
-     * @param id
-     *            the unique identifier of the instance.
+     * @param id the unique identifier of the instance.
      * @return information about a particular instance.
      */
     @Path("{id}")
@@ -139,6 +129,13 @@ public class ApplicationResource {
      *            a header parameter containing information whether this is
      *            replicated from other nodes.
      */
+    /**
+     * 接收eureka-client的服务注册请求
+     *
+     * @param info
+     * @param isReplication
+     * @return
+     */
     @POST
     @Consumes({"application/json", "application/xml"})
     public Response addInstance(InstanceInfo info,
@@ -154,35 +151,45 @@ public class ApplicationResource {
         } else if (isBlank(info.getAppName())) {
             return Response.status(400).entity("Missing appName").build();
         } else if (!appName.equals(info.getAppName())) {
-            return Response.status(400).entity("Mismatched appName, expecting " + appName + " but was " + info.getAppName()).build();
+            return Response.status(400).entity("Mismatched appName, expecting " + appName + " but"
+                    + " was " + info.getAppName()).build();
         } else if (info.getDataCenterInfo() == null) {
             return Response.status(400).entity("Missing dataCenterInfo").build();
         } else if (info.getDataCenterInfo().getName() == null) {
             return Response.status(400).entity("Missing dataCenterInfo Name").build();
         }
 
+        // dataCenterInfo = MyOwn
         // handle cases where clients may be registering with bad DataCenterInfo with missing data
         DataCenterInfo dataCenterInfo = info.getDataCenterInfo();
-        if (dataCenterInfo instanceof UniqueIdentifier) {
+        if (
+            // MyDataCenterInstanceConfig
+                dataCenterInfo instanceof UniqueIdentifier) {
             String dataCenterInfoId = ((UniqueIdentifier) dataCenterInfo).getId();
             if (isBlank(dataCenterInfoId)) {
-                boolean experimental = "true".equalsIgnoreCase(serverConfig.getExperimental("registration.validation.dataCenterInfoId"));
+                boolean experimental = "true".equalsIgnoreCase(serverConfig.getExperimental(
+                        "registration.validation.dataCenterInfoId"));
                 if (experimental) {
-                    String entity = "DataCenterInfo of type " + dataCenterInfo.getClass() + " must contain a valid id";
+                    String entity =
+                            "DataCenterInfo of type " + dataCenterInfo.getClass() + " " + "must " + "contain a valid id";
                     return Response.status(400).entity(entity).build();
                 } else if (dataCenterInfo instanceof AmazonInfo) {
                     AmazonInfo amazonInfo = (AmazonInfo) dataCenterInfo;
                     String effectiveId = amazonInfo.get(AmazonInfo.MetaDataKey.instanceId);
                     if (effectiveId == null) {
-                        amazonInfo.getMetadata().put(AmazonInfo.MetaDataKey.instanceId.getName(), info.getId());
+                        amazonInfo.getMetadata().put(AmazonInfo.MetaDataKey.instanceId.getName(),
+                                info.getId());
                     }
                 } else {
-                    logger.warn("Registering DataCenterInfo of type {} without an appropriate id", dataCenterInfo.getClass());
+                    logger.warn("Registering DataCenterInfo of type {} without an appropriate id"
+                            , dataCenterInfo.getClass());
                 }
             }
         }
 
+        // PeerAwareInstanceRegistry
         registry.register(info, "true".equals(isReplication));
+        // http 204 : 成功完成请求，并且在响应有效负载正文中没有要发送的内容
         return Response.status(204).build();  // 204 to be backwards compatible
     }
 

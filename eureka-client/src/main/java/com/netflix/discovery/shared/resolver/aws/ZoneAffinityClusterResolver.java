@@ -26,8 +26,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * It is a cluster resolver that reorders the server list, such that the first server on the list
- * is in the same zone as the client. The server is chosen randomly from the available pool of server in
- * that zone. The remaining servers are appended in a random order, local zone first, followed by servers from other zones.
+ * is in the same zone as the client. The server is chosen randomly from the available pool of
+ * server in
+ * that zone. The remaining servers are appended in a random order, local zone first, followed by
+ * servers from other zones.
  *
  * @author Tomasz Bak
  */
@@ -42,7 +44,9 @@ public class ZoneAffinityClusterResolver implements ClusterResolver<AwsEndpoint>
     /**
      * A zoneAffinity defines zone affinity (true) or anti-affinity rules (false).
      */
-    public ZoneAffinityClusterResolver(ClusterResolver<AwsEndpoint> delegate, String myZone, boolean zoneAffinity) {
+    public ZoneAffinityClusterResolver(ClusterResolver<AwsEndpoint> delegate, String myZone,
+                                       boolean zoneAffinity) {
+        // this.delegate = ConfigClusterResolver
         this.delegate = delegate;
         this.myZone = myZone;
         this.zoneAffinity = zoneAffinity;
@@ -55,9 +59,18 @@ public class ZoneAffinityClusterResolver implements ClusterResolver<AwsEndpoint>
 
     @Override
     public List<AwsEndpoint> getClusterEndpoints() {
-        List<AwsEndpoint>[] parts = ResolverUtils.splitByZone(delegate.getClusterEndpoints(), myZone);
+        // [[],[]]
+        List<AwsEndpoint>[] parts = ResolverUtils.splitByZone(
+                // ConfigClusterResolver
+                // []
+                delegate.getClusterEndpoints(),
+                myZone);
+        // []
         List<AwsEndpoint> myZoneEndpoints = parts[0];
+        // []
         List<AwsEndpoint> remainingEndpoints = parts[1];
+
+        // []
         List<AwsEndpoint> randomizedList = randomizeAndMerge(myZoneEndpoints, remainingEndpoints);
         if (!zoneAffinity) {
             Collections.reverse(randomizedList);
@@ -67,12 +80,22 @@ public class ZoneAffinityClusterResolver implements ClusterResolver<AwsEndpoint>
             logger.debug("Local zone={}; resolved to: {}", myZone, randomizedList);
         }
 
+        // []
         return randomizedList;
     }
 
-    private static List<AwsEndpoint> randomizeAndMerge(List<AwsEndpoint> myZoneEndpoints, List<AwsEndpoint> remainingEndpoints) {
-        if (myZoneEndpoints.isEmpty()) {
-            return ResolverUtils.randomize(remainingEndpoints);
+    private static List<AwsEndpoint> randomizeAndMerge(
+            // []
+            List<AwsEndpoint> myZoneEndpoints,
+            // []
+            List<AwsEndpoint> remainingEndpoints) {
+        if (
+            // true
+                myZoneEndpoints.isEmpty()) {
+            // []
+            return ResolverUtils.randomize(
+                    // []
+                    remainingEndpoints);
         }
         if (remainingEndpoints.isEmpty()) {
             return ResolverUtils.randomize(myZoneEndpoints);

@@ -58,30 +58,48 @@ public final class EurekaHttpClients {
                 ? wrapClosable(bootstrapResolver)
                 : queryClientResolver(bootstrapResolver, transportClientFactory,
                 clientConfig, transportConfig, myInstanceInfo, applicationsSource);
-        return canonicalClientFactory(EurekaClientNames.QUERY, transportConfig, queryResolver, transportClientFactory);
+        return canonicalClientFactory(EurekaClientNames.QUERY, transportConfig, queryResolver,
+                transportClientFactory);
     }
 
-    public static EurekaHttpClientFactory registrationClientFactory(ClusterResolver bootstrapResolver,
-                                                                    TransportClientFactory transportClientFactory,
-                                                                    EurekaTransportConfig transportConfig) {
-        return canonicalClientFactory(EurekaClientNames.REGISTRATION, transportConfig, bootstrapResolver, transportClientFactory);
+    public static EurekaHttpClientFactory registrationClientFactory(
+            // eurekaTransport.bootstrapResolver
+            ClusterResolver bootstrapResolver,
+            // metricsFactory
+            TransportClientFactory transportClientFactory,
+            EurekaTransportConfig transportConfig) {
+        return canonicalClientFactory(
+                EurekaClientNames.REGISTRATION,
+                transportConfig,
+                // eurekaTransport.bootstrapResolver
+                bootstrapResolver,
+                // metricsFactory
+                transportClientFactory);
     }
 
     static EurekaHttpClientFactory canonicalClientFactory(final String name,
                                                           final EurekaTransportConfig transportConfig,
+                                                          // eurekaTransport.bootstrapResolver
                                                           final ClusterResolver<EurekaEndpoint> clusterResolver,
+                                                          // metricsFactory
                                                           final TransportClientFactory transportClientFactory) {
 
         return new EurekaHttpClientFactory() {
             @Override
             public EurekaHttpClient newClient() {
+                // 获取 SessionedEurekaHttpClient ，装饰 RetryableEurekaHttpClient
                 return new SessionedEurekaHttpClient(
                         name,
+                        // 获取 RetryableEurekaHttpClient ，装饰 RedirectingEurekaHttpClient
                         RetryableEurekaHttpClient.createFactory(
                                 name,
                                 transportConfig,
+                                // eurekaTransport.bootstrapResolver
                                 clusterResolver,
-                                RedirectingEurekaHttpClient.createFactory(transportClientFactory),
+                                // 获取 RedirectingEurekaHttpClient ，装饰 metricsFactory
+                                RedirectingEurekaHttpClient.createFactory(
+                                        // metricsFactory
+                                        transportClientFactory),
                                 ServerStatusEvaluators.legacyEvaluator()),
                         transportConfig.getSessionedClientReconnectIntervalSeconds() * 1000
                 );
@@ -105,9 +123,10 @@ public final class EurekaHttpClients {
             final EurekaTransportConfig transportConfig,
             final TransportClientFactory transportClientFactory,
             final InstanceInfo myInstanceInfo,
-            final ApplicationsResolver.ApplicationsSource applicationsSource)
-    {
-        if (COMPOSITE_BOOTSTRAP_STRATEGY.equals(transportConfig.getBootstrapResolverStrategy())) {
+            final ApplicationsResolver.ApplicationsSource applicationsSource) {
+        if (COMPOSITE_BOOTSTRAP_STRATEGY.equals(
+                // null
+                transportConfig.getBootstrapResolverStrategy())) {
             if (clientConfig.shouldFetchRegistry()) {
                 return compositeBootstrapResolver(
                         clientConfig,
@@ -117,7 +136,8 @@ public final class EurekaHttpClients {
                         applicationsSource
                 );
             } else {
-                logger.warn("Cannot create a composite bootstrap resolver if registry fetch is disabled." +
+                logger.warn("Cannot create a composite bootstrap resolver if registry fetch is " +
+                        "disabled." +
                         " Falling back to using a default bootstrap resolver.");
             }
         }
@@ -127,30 +147,44 @@ public final class EurekaHttpClients {
     }
 
     /**
-     * @return a bootstrap resolver that resolves eureka server endpoints based on either DNS or static config,
-     *         depending on configuration for one or the other. This resolver will warm up at the start.
+     * @return a bootstrap resolver that resolves eureka server endpoints based on either DNS or
+     * static config,
+     * depending on configuration for one or the other. This resolver will warm up at the start.
      */
     static ClosableResolver<AwsEndpoint> defaultBootstrapResolver(final EurekaClientConfig clientConfig,
                                                                   final InstanceInfo myInstanceInfo) {
-        String[] availZones = clientConfig.getAvailabilityZones(clientConfig.getRegion());
+        // 根据 region 获取 zone
+        // eureka.default.availabilityZones = defaultZone
+        String[] availZones = clientConfig.getAvailabilityZones(
+                // eureka.region=default
+                clientConfig.getRegion());
+        // defaultZone
         String myZone = InstanceInfo.getZone(availZones, myInstanceInfo);
 
         ClusterResolver<AwsEndpoint> delegateResolver = new ZoneAffinityClusterResolver(
                 new ConfigClusterResolver(clientConfig, myInstanceInfo),
+                // defaultZone
                 myZone,
                 true
         );
 
+        // []
         List<AwsEndpoint> initialValue = delegateResolver.getClusterEndpoints();
-        if (initialValue.isEmpty()) {
-            String msg = "Initial resolution of Eureka server endpoints failed. Check ConfigClusterResolver logs for more info";
+        if (
+            // true
+                initialValue.isEmpty()) {
+            String msg = "Initial resolution of Eureka server endpoints failed. Check " +
+                    "ConfigClusterResolver logs for more info";
             logger.error(msg);
             failFastOnInitCheck(clientConfig, msg);
         }
 
         return new AsyncResolver<>(
+                // bootstrap
                 EurekaClientNames.BOOTSTRAP,
+                // ClusterResolver<AwsEndpoint>
                 delegateResolver,
+                // []
                 initialValue,
                 1,
                 clientConfig.getEurekaServiceUrlPollIntervalSeconds() * 1000
@@ -158,17 +192,18 @@ public final class EurekaHttpClients {
     }
 
     /**
-     * @return a bootstrap resolver that resolves eureka server endpoints via a remote call to a "vip source"
-     *         the local registry, where the source is found from a rootResolver (dns or config)
+     * @return a bootstrap resolver that resolves eureka server endpoints via a remote call to a
+     * "vip source"
+     * the local registry, where the source is found from a rootResolver (dns or config)
      */
     static ClosableResolver<AwsEndpoint> compositeBootstrapResolver(
             final EurekaClientConfig clientConfig,
             final EurekaTransportConfig transportConfig,
             final TransportClientFactory transportClientFactory,
             final InstanceInfo myInstanceInfo,
-            final ApplicationsResolver.ApplicationsSource applicationsSource)
-    {
-        final ClusterResolver rootResolver = new ConfigClusterResolver(clientConfig, myInstanceInfo);
+            final ApplicationsResolver.ApplicationsSource applicationsSource) {
+        final ClusterResolver rootResolver = new ConfigClusterResolver(clientConfig,
+                myInstanceInfo);
 
         final EurekaHttpResolver remoteResolver = new EurekaHttpResolver(
                 clientConfig,
@@ -204,7 +239,8 @@ public final class EurekaHttpClients {
 
         List<AwsEndpoint> initialValue = compositeResolver.getClusterEndpoints();
         if (initialValue.isEmpty()) {
-            String msg = "Initial resolution of Eureka endpoints failed. Check ConfigClusterResolver logs for more info";
+            String msg = "Initial resolution of Eureka endpoints failed. Check " +
+                    "ConfigClusterResolver logs for more info";
             logger.error(msg);
             failFastOnInitCheck(clientConfig, msg);
         }
@@ -255,11 +291,13 @@ public final class EurekaHttpClients {
     }
 
     /**
-     * @return a composite resolver that resolves eureka server endpoints for query operations, given two resolvers:
-     *         a resolver that can resolve targets via a remote call to a remote source, and a resolver that
-     *         can resolve targets via data in the local registry.
+     * @return a composite resolver that resolves eureka server endpoints for query operations,
+     * given two resolvers:
+     * a resolver that can resolve targets via a remote call to a remote source, and a resolver that
+     * can resolve targets via data in the local registry.
      */
-    /* testing */ static ClosableResolver<AwsEndpoint> compositeQueryResolver(
+    /* testing */
+    static ClosableResolver<AwsEndpoint> compositeQueryResolver(
             final ClusterResolver<AwsEndpoint> remoteResolver,
             final ClusterResolver<AwsEndpoint> localResolver,
             final EurekaClientConfig clientConfig,
@@ -320,7 +358,10 @@ public final class EurekaHttpClients {
 
     // potential future feature, guarding with experimental flag for now
     private static void failFastOnInitCheck(EurekaClientConfig clientConfig, String msg) {
-        if ("true".equals(clientConfig.getExperimental("clientTransportFailFastOnInit"))) {
+        if (
+                "true".equals(
+                        // null
+                        clientConfig.getExperimental("clientTransportFailFastOnInit"))) {
             throw new RuntimeException(msg);
         }
     }

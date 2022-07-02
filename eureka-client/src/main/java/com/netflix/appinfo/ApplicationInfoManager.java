@@ -222,18 +222,23 @@ public class ApplicationInfoManager {
     }
 
     public void refreshLeaseInfoIfRequired() {
+        // 获取租约信息
         LeaseInfo leaseInfo = instanceInfo.getLeaseInfo();
         if (leaseInfo == null) {
             return;
         }
+        // 获取租约过期间隔时间，单位是秒
         int currentLeaseDuration = config.getLeaseExpirationDurationInSeconds();
+        // 获取租约续约间隔时间，单位是秒
         int currentLeaseRenewal = config.getLeaseRenewalIntervalInSeconds();
+        // 租约信息如果发生变化了，重新构建新的租约信息，设置到instanceInfo中
         if (leaseInfo.getDurationInSecs() != currentLeaseDuration || leaseInfo.getRenewalIntervalInSecs() != currentLeaseRenewal) {
             LeaseInfo newLeaseInfo = LeaseInfo.Builder.newBuilder()
                     .setRenewalIntervalInSecs(currentLeaseRenewal)
                     .setDurationInSecs(currentLeaseDuration)
                     .build();
             instanceInfo.setLeaseInfo(newLeaseInfo);
+            // 设置instanceInfo状态为dirty
             instanceInfo.setIsDirty();
         }
     }

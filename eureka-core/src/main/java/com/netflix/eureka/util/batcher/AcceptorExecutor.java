@@ -29,16 +29,21 @@ import static com.netflix.eureka.Names.METRIC_REPLICATION_PREFIX;
 
 /**
  * An active object with an internal thread accepting tasks from clients, and dispatching them to
- * workers in a pull based manner. Workers explicitly request an item or a batch of items whenever they are
- * available. This guarantees that data to be processed are always up to date, and no stale data processing is done.
+ * workers in a pull based manner. Workers explicitly request an item or a batch of items
+ * whenever they are
+ * available. This guarantees that data to be processed are always up to date, and no stale data
+ * processing is done.
  *
  * <h3>Task identification</h3>
- * Each task passed for processing has a corresponding task id. This id is used to remove duplicates (replace
+ * Each task passed for processing has a corresponding task id. This id is used to remove
+ * duplicates (replace
  * older copies with newer ones).
  *
  * <h3>Re-processing</h3>
- * If data processing by a worker failed, and the failure is transient in nature, the worker will put back the
- * task(s) back to the {@link AcceptorExecutor}. This data will be merged with current workload, possibly discarded if
+ * If data processing by a worker failed, and the failure is transient in nature, the worker will
+ * put back the
+ * task(s) back to the {@link AcceptorExecutor}. This data will be merged with current workload,
+ * possibly discarded if
  * a newer version has been already received.
  *
  * @author Tomasz Bak
@@ -53,47 +58,76 @@ class AcceptorExecutor<ID, T> {
 
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
 
+    /**
+     * 存放服务实例状态变更命令对象的TaskHolder结构体
+     */
     private final BlockingQueue<TaskHolder<ID, T>> acceptorQueue = new LinkedBlockingQueue<>();
+    /**
+     * 存放请求提交失败的任务，随着acceptorQueue一起，重新放入处理队列（processingQueue）
+     */
     private final BlockingDeque<TaskHolder<ID, T>> reprocessQueue = new LinkedBlockingDeque<>();
+
+    /**
+     *
+     */
     private final Thread acceptorThread;
 
+    /**
+     * 转存从acceptorQueue队列移过来的命令对象
+     */
     private final Map<ID, TaskHolder<ID, T>> pendingTasks = new HashMap<>();
+    /**
+     * 顺序存放acceptorQueue队列移过来的命令对象taskId。关联pendingTasks，作为索引使用。
+     * 为啥不使用LinkedHashMap？？？
+     */
     private final Deque<ID> processingOrder = new LinkedList<>();
 
     private final Semaphore singleItemWorkRequests = new Semaphore(0);
-    private final BlockingQueue<TaskHolder<ID, T>> singleItemWorkQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<TaskHolder<ID, T>> singleItemWorkQueue =
+            new LinkedBlockingQueue<>();
 
+    /**
+     *
+     */
     private final Semaphore batchWorkRequests = new Semaphore(0);
-    private final BlockingQueue<List<TaskHolder<ID, T>>> batchWorkQueue = new LinkedBlockingQueue<>();
+    /**
+     * 根据数量及时间打包批量任务
+     */
+    private final BlockingQueue<List<TaskHolder<ID, T>>> batchWorkQueue =
+            new LinkedBlockingQueue<>();
 
     private final TrafficShaper trafficShaper;
 
     /*
      * Metrics
      */
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "acceptedTasks", description = "Number of accepted tasks", type = DataSourceType.COUNTER)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "acceptedTasks", description = "Number of " +
+            "accepted tasks", type = DataSourceType.COUNTER)
     volatile long acceptedTasks;
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "replayedTasks", description = "Number of replayedTasks tasks", type = DataSourceType.COUNTER)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "replayedTasks", description = "Number of " +
+            "replayedTasks tasks", type = DataSourceType.COUNTER)
     volatile long replayedTasks;
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "expiredTasks", description = "Number of expired tasks", type = DataSourceType.COUNTER)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "expiredTasks", description = "Number of expired "
+            + "tasks", type = DataSourceType.COUNTER)
     volatile long expiredTasks;
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "overriddenTasks", description = "Number of overridden tasks", type = DataSourceType.COUNTER)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "overriddenTasks", description = "Number of " +
+            "overridden tasks", type = DataSourceType.COUNTER)
     volatile long overriddenTasks;
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "queueOverflows", description = "Number of queue overflows", type = DataSourceType.COUNTER)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "queueOverflows", description = "Number of queue "
+            + "overflows", type = DataSourceType.COUNTER)
     volatile long queueOverflows;
 
     private final Timer batchSizeMetric;
 
     AcceptorExecutor(String id,
-                     int maxBufferSize,
-                     int maxBatchingSize,
-                     long maxBatchingDelay,
-                     long congestionRetryDelayMs,
-                     long networkFailureRetryMs) {
+                     // 10000
+                     int maxBufferSize, int maxBatchingSize, long maxBatchingDelay,
+                     long congestionRetryDelayMs, long networkFailureRetryMs) {
+        // 10000
         this.maxBufferSize = maxBufferSize;
         this.maxBatchingSize = maxBatchingSize;
         this.maxBatchingDelay = maxBatchingDelay;
@@ -105,12 +139,10 @@ class AcceptorExecutor<ID, T> {
         this.acceptorThread.start();
 
         final double[] percentiles = {50.0, 95.0, 99.0, 99.5};
-        final StatsConfig statsConfig = new StatsConfig.Builder()
-                .withSampleSize(1000)
-                .withPercentiles(percentiles)
-                .withPublishStdDev(true)
-                .build();
-        final MonitorConfig config = MonitorConfig.builder(METRIC_REPLICATION_PREFIX + "batchSize").build();
+        final StatsConfig statsConfig =
+                new StatsConfig.Builder().withSampleSize(1000).withPercentiles(percentiles).withPublishStdDev(true).build();
+        final MonitorConfig config = MonitorConfig.builder(METRIC_REPLICATION_PREFIX + "batchSize"
+        ).build();
         this.batchSizeMetric = new StatsTimer(config, statsConfig);
         try {
             Monitors.registerObject(id, this);
@@ -120,11 +152,13 @@ class AcceptorExecutor<ID, T> {
     }
 
     void process(ID id, T task, long expiryTime) {
+        // 1. 接收任务放到接收队列（acceptorQueue）
         acceptorQueue.add(new TaskHolder<ID, T>(id, task, expiryTime));
         acceptedTasks++;
     }
 
     void reprocess(List<TaskHolder<ID, T>> holders, ProcessingResult processingResult) {
+        // 4(1). 接收请求失败的任务放入重处理队列（reprocessQueue）
         reprocessQueue.addAll(holders);
         replayedTasks += holders.size();
         trafficShaper.registerFailure(processingResult);
@@ -141,6 +175,10 @@ class AcceptorExecutor<ID, T> {
         return singleItemWorkQueue;
     }
 
+    /**
+     * 给予信号量【batchWorkRequests】权限，并返回【批处理任务队列】的引用
+     * @return
+     */
     BlockingQueue<List<TaskHolder<ID, T>>> requestWorkItems() {
         batchWorkRequests.release();
         return batchWorkQueue;
@@ -152,37 +190,47 @@ class AcceptorExecutor<ID, T> {
         }
     }
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "acceptorQueueSize", description = "Number of tasks waiting in the acceptor queue", type = DataSourceType.GAUGE)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "acceptorQueueSize", description =
+            "Number of " + "tasks waiting in the acceptor queue", type = DataSourceType.GAUGE)
     public long getAcceptorQueueSize() {
         return acceptorQueue.size();
     }
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "reprocessQueueSize", description = "Number of tasks waiting in the reprocess queue", type = DataSourceType.GAUGE)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "reprocessQueueSize", description =
+            "Number of " + "tasks waiting in the reprocess queue", type = DataSourceType.GAUGE)
     public long getReprocessQueueSize() {
         return reprocessQueue.size();
     }
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "queueSize", description = "Task queue size", type = DataSourceType.GAUGE)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "queueSize", description = "Task queue size",
+            type = DataSourceType.GAUGE)
     public long getQueueSize() {
         return pendingTasks.size();
     }
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "pendingJobRequests", description = "Number of worker threads awaiting job assignment", type = DataSourceType.GAUGE)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "pendingJobRequests", description =
+            "Number of " + "worker threads awaiting job assignment", type = DataSourceType.GAUGE)
     public long getPendingJobRequests() {
         return singleItemWorkRequests.availablePermits() + batchWorkRequests.availablePermits();
     }
 
-    @Monitor(name = METRIC_REPLICATION_PREFIX + "availableJobs", description = "Number of jobs ready to be taken by the workers", type = DataSourceType.GAUGE)
+    @Monitor(name = METRIC_REPLICATION_PREFIX + "availableJobs", description =
+            "Number of jobs " + "ready to be taken by the workers", type = DataSourceType.GAUGE)
     public long workerTaskQueueSize() {
         return singleItemWorkQueue.size() + batchWorkQueue.size();
     }
 
+    /**
+     * 1. 合并【第一层队列】，迁移到【第二层队列】
+     * 2. 合并【任务】打包为【批处理任务】
+     */
     class AcceptorRunner implements Runnable {
         @Override
         public void run() {
             long scheduleTime = 0;
             while (!isShutdown.get()) {
                 try {
+                    // 2. 将acceptorQueue与reprocessQueue队列的任务迁移到pendingTasks中
                     drainInputQueues();
 
                     int totalItems = processingOrder.size();
@@ -192,11 +240,13 @@ class AcceptorExecutor<ID, T> {
                         scheduleTime = now + trafficShaper.transmissionDelay();
                     }
                     if (scheduleTime <= now) {
+                        // 3. 将任务（holder）合并成批量任务（holders），提交到工作队列（batchWorkQueue）
                         assignBatchWork();
                         assignSingleItemWork();
                     }
 
-                    // If no worker is requesting data or there is a delay injected by the traffic shaper,
+                    // If no worker is requesting data or there is a delay injected by the
+                    // traffic shaper,
                     // sleep for some time to avoid tight loop.
                     if (totalItems == processingOrder.size()) {
                         Thread.sleep(10);
@@ -222,7 +272,8 @@ class AcceptorExecutor<ID, T> {
                 if (!isShutdown.get()) {
                     // If all queues are empty, block for a while on the acceptor queue
                     if (reprocessQueue.isEmpty() && acceptorQueue.isEmpty() && pendingTasks.isEmpty()) {
-                        TaskHolder<ID, T> taskHolder = acceptorQueue.poll(10, TimeUnit.MILLISECONDS);
+                        TaskHolder<ID, T> taskHolder = acceptorQueue.poll(10,
+                                TimeUnit.MILLISECONDS);
                         if (taskHolder != null) {
                             appendTaskHolder(taskHolder);
                         }

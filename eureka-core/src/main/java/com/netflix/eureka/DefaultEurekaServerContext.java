@@ -61,7 +61,9 @@ public class DefaultEurekaServerContext implements EurekaServerContext {
     @Override
     public void initialize() throws Exception {
         logger.info("Initializing ...");
+        // 启动 eureka-server 集群
         peerEurekaNodes.start();
+        // 基于eureka server集群的信息，来初始化注册表
         registry.init(peerEurekaNodes);
         logger.info("Initialized");
     }

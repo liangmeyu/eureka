@@ -16,7 +16,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * This class contains some of the utility functions previously found in DiscoveryClient, but should be elsewhere.
+ * This class contains some of the utility functions previously found in DiscoveryClient, but
+ * should be elsewhere.
  * It *does not yet* clean up the moved code.
  */
 public class EndpointUtils {
@@ -67,17 +68,20 @@ public class EndpointUtils {
      * Get the list of all eureka service urls for the eureka client to talk to.
      *
      * @param clientConfig the clientConfig to use
-     * @param zone the zone in which the client resides
-     * @param randomizer a randomizer to randomized returned urls, if loading from dns
-     *
+     * @param zone         the zone in which the client resides
+     * @param randomizer   a randomizer to randomized returned urls, if loading from dns
      * @return The list of all eureka service urls for the eureka client to talk to.
      */
-    public static List<String> getDiscoveryServiceUrls(EurekaClientConfig clientConfig, String zone, ServiceUrlRandomizer randomizer) {
+    public static List<String> getDiscoveryServiceUrls(EurekaClientConfig clientConfig,
+                                                       String zone,
+                                                       ServiceUrlRandomizer randomizer) {
         boolean shouldUseDns = clientConfig.shouldUseDnsForFetchingServiceUrls();
         if (shouldUseDns) {
-            return getServiceUrlsFromDNS(clientConfig, zone, clientConfig.shouldPreferSameZoneEureka(), randomizer);
+            return getServiceUrlsFromDNS(clientConfig, zone,
+                    clientConfig.shouldPreferSameZoneEureka(), randomizer);
         }
-        return getServiceUrlsFromConfig(clientConfig, zone, clientConfig.shouldPreferSameZoneEureka());
+        return getServiceUrlsFromConfig(clientConfig, zone,
+                clientConfig.shouldPreferSameZoneEureka());
     }
 
     /**
@@ -86,18 +90,20 @@ public class EndpointUtils {
      * other zones randomly. If there are multiple servers in the same zone, the client once
      * again picks one randomly. This way the traffic will be distributed in the case of failures.
      *
-     * @param clientConfig the clientConfig to use
-     * @param instanceZone The zone in which the client resides.
+     * @param clientConfig   the clientConfig to use
+     * @param instanceZone   The zone in which the client resides.
      * @param preferSameZone true if we have to prefer the same zone as the client, false otherwise.
-     * @param randomizer a randomizer to randomized returned urls
-     *
+     * @param randomizer     a randomizer to randomized returned urls
      * @return The list of all eureka service urls for the eureka client to talk to.
      */
-    public static List<String> getServiceUrlsFromDNS(EurekaClientConfig clientConfig, String instanceZone, boolean preferSameZone, ServiceUrlRandomizer randomizer) {
+    public static List<String> getServiceUrlsFromDNS(EurekaClientConfig clientConfig,
+                                                     String instanceZone, boolean preferSameZone,
+                                                     ServiceUrlRandomizer randomizer) {
         String region = getRegion(clientConfig);
         // Get zone-specific DNS names for the given region so that we can get a
         // list of available zones
-        Map<String, List<String>> zoneDnsNamesMap = getZoneBasedDiscoveryUrlsFromRegion(clientConfig, region);
+        Map<String, List<String>> zoneDnsNamesMap =
+                getZoneBasedDiscoveryUrlsFromRegion(clientConfig, region);
         Set<String> availableZones = zoneDnsNamesMap.keySet();
         List<String> zones = new ArrayList<String>(availableZones);
         if (zones.isEmpty()) {
@@ -106,7 +112,8 @@ public class EndpointUtils {
         int zoneIndex = 0;
         boolean zoneFound = false;
         for (String zone : zones) {
-            logger.debug("Checking if the instance zone {} is the same as the zone from DNS {}", instanceZone, zone);
+            logger.debug("Checking if the instance zone {} is the same as the zone from DNS {}",
+                    instanceZone, zone);
             if (preferSameZone) {
                 if (instanceZone.equalsIgnoreCase(zone)) {
                     zoneFound = true;
@@ -118,7 +125,8 @@ public class EndpointUtils {
             }
             if (zoneFound) {
                 Object[] args = {zones, instanceZone, zoneIndex};
-                logger.debug("The zone index from the list {} that matches the instance zone {} is {}", args);
+                logger.debug("The zone index from the list {} that matches the instance zone {} " +
+                        "is {}", args);
                 break;
             }
             zoneIndex++;
@@ -138,7 +146,9 @@ public class EndpointUtils {
         List<String> serviceUrls = new ArrayList<String>();
         for (String zone : zones) {
             for (String zoneCname : zoneDnsNamesMap.get(zone)) {
-                List<String> ec2Urls = new ArrayList<String>(getEC2DiscoveryUrlsFromZone(zoneCname, DiscoveryUrlType.CNAME));
+                List<String> ec2Urls =
+                        new ArrayList<String>(getEC2DiscoveryUrlsFromZone(zoneCname,
+                                DiscoveryUrlType.CNAME));
                 // Rearrange the list to distribute the load in case of
                 // multiple servers
                 if (ec2Urls.size() > 1) {
@@ -165,14 +175,17 @@ public class EndpointUtils {
     }
 
     /**
-     * Get the list of all eureka service urls from properties file for the eureka client to talk to.
+     * Get the list of all eureka service urls from properties file for the eureka client to talk
+     * to.
      *
-     * @param clientConfig the clientConfig to use
-     * @param instanceZone The zone in which the client resides
+     * @param clientConfig   the clientConfig to use
+     * @param instanceZone   The zone in which the client resides
      * @param preferSameZone true if we have to prefer the same zone as the client, false otherwise
      * @return The list of all eureka service urls for the eureka client to talk to
      */
-    public static List<String> getServiceUrlsFromConfig(EurekaClientConfig clientConfig, String instanceZone, boolean preferSameZone) {
+    public static List<String> getServiceUrlsFromConfig(EurekaClientConfig clientConfig,
+                                                        String instanceZone,
+                                                        boolean preferSameZone) {
         List<String> orderedUrls = new ArrayList<String>();
         String region = getRegion(clientConfig);
         String[] availZones = clientConfig.getAvailabilityZones(clientConfig.getRegion());
@@ -180,10 +193,12 @@ public class EndpointUtils {
             availZones = new String[1];
             availZones[0] = DEFAULT_ZONE;
         }
-        logger.debug("The availability zone for the given region {} are {}", region, Arrays.toString(availZones));
+        logger.debug("The availability zone for the given region {} are {}", region,
+                Arrays.toString(availZones));
         int myZoneOffset = getZoneOffset(instanceZone, preferSameZone, availZones);
 
-        List<String> serviceUrls = clientConfig.getEurekaServerServiceUrls(availZones[myZoneOffset]);
+        List<String> serviceUrls =
+                clientConfig.getEurekaServerServiceUrls(availZones[myZoneOffset]);
         if (serviceUrls != null) {
             orderedUrls.addAll(serviceUrls);
         }
@@ -207,30 +222,62 @@ public class EndpointUtils {
     }
 
     /**
-     * Get the list of all eureka service urls from properties file for the eureka client to talk to.
+     * Get the list of all eureka service urls from properties file for the eureka client to talk
+     * to.
      *
-     * @param clientConfig the clientConfig to use
-     * @param instanceZone The zone in which the client resides
+     * @param clientConfig   the clientConfig to use
+     * @param instanceZone   The zone in which the client resides
      * @param preferSameZone true if we have to prefer the same zone as the client, false otherwise
-     * @return an (ordered) map of zone -> list of urls mappings, with the preferred zone first in iteration order
+     * @return an (ordered) map of zone -> list of urls mappings, with the preferred zone first
+     * in iteration order
      */
-    public static Map<String, List<String>> getServiceUrlsMapFromConfig(EurekaClientConfig clientConfig, String instanceZone, boolean preferSameZone) {
+    public static Map<String, List<String>> getServiceUrlsMapFromConfig(
+            EurekaClientConfig clientConfig,
+            // default
+            String instanceZone,
+            // false
+            boolean preferSameZone) {
+
         Map<String, List<String>> orderedUrls = new LinkedHashMap<>();
+        // default
         String region = getRegion(clientConfig);
+        // defaultZone
         String[] availZones = clientConfig.getAvailabilityZones(clientConfig.getRegion());
         if (availZones == null || availZones.length == 0) {
             availZones = new String[1];
             availZones[0] = DEFAULT_ZONE;
         }
-        logger.debug("The availability zone for the given region {} are {}", region, Arrays.toString(availZones));
-        int myZoneOffset = getZoneOffset(instanceZone, preferSameZone, availZones);
+        logger.debug("The availability zone for the given region {} are {}", region,
+                Arrays.toString(availZones));
+        // 0
+        int myZoneOffset = getZoneOffset(
+                // default
+                instanceZone,
+                // false
+                preferSameZone,
+                // defaultZone
+                availZones);
 
+        // defaultZone
         String zone = availZones[myZoneOffset];
-        List<String> serviceUrls = clientConfig.getEurekaServerServiceUrls(zone);
+
+        // isEmpty
+        List<String> serviceUrls = clientConfig.getEurekaServerServiceUrls(
+                // defaultZone
+                zone);
+
         if (serviceUrls != null) {
+            // defaultZone:[]
             orderedUrls.put(zone, serviceUrls);
         }
-        int currentOffset = myZoneOffset == (availZones.length - 1) ? 0 : (myZoneOffset + 1);
+        // 0
+        int currentOffset =
+                // 0
+                myZoneOffset == (
+                        // 0
+                        availZones.length - 1
+                ) ? 0 : (myZoneOffset + 1);
+        //
         while (currentOffset != myZoneOffset) {
             zone = availZones[currentOffset];
             serviceUrls = clientConfig.getEurekaServerServiceUrls(zone);
@@ -247,6 +294,7 @@ public class EndpointUtils {
         if (orderedUrls.size() < 1) {
             throw new IllegalArgumentException("DiscoveryClient: invalid serviceUrl specified!");
         }
+        // defaultZone:[]
         return orderedUrls;
     }
 
@@ -254,7 +302,7 @@ public class EndpointUtils {
      * Get the list of EC2 URLs given the zone name.
      *
      * @param dnsName The dns name of the zone-specific CNAME
-     * @param type CNAME or EIP that needs to be retrieved
+     * @param type    CNAME or EIP that needs to be retrieved
      * @return The list of EC2 URLs associated with the dns name
      */
     public static Set<String> getEC2DiscoveryUrlsFromZone(String dnsName, DiscoveryUrlType type) {
@@ -294,10 +342,9 @@ public class EndpointUtils {
     /**
      * Get the zone based CNAMES that are bound to a region.
      *
-     * @param region
-     *            - The region for which the zone names need to be retrieved
+     * @param region - The region for which the zone names need to be retrieved
      * @return - The list of CNAMES from which the zone-related information can
-     *         be retrieved
+     * be retrieved
      */
     public static Map<String, List<String>> getZoneBasedDiscoveryUrlsFromRegion(EurekaClientConfig clientConfig, String region) {
         String discoveryDnsName = null;
@@ -305,7 +352,8 @@ public class EndpointUtils {
             discoveryDnsName = "txt." + region + "." + clientConfig.getEurekaServerDNSName();
 
             logger.debug("The region url to be looked up is {} :", discoveryDnsName);
-            Set<String> zoneCnamesForRegion = new TreeSet<String>(DnsResolver.getCNamesFromTxtRecord(discoveryDnsName));
+            Set<String> zoneCnamesForRegion =
+                    new TreeSet<String>(DnsResolver.getCNamesFromTxtRecord(discoveryDnsName));
             Map<String, List<String>> zoneCnameMapForRegion = new TreeMap<String, List<String>>();
             for (String zoneCname : zoneCnamesForRegion) {
                 String zone = null;
@@ -343,6 +391,7 @@ public class EndpointUtils {
         if (region == null) {
             region = DEFAULT_REGION;
         }
+        // default
         region = region.trim().toLowerCase();
         return region;
     }
@@ -355,13 +404,28 @@ public class EndpointUtils {
     /**
      * Gets the zone to pick up for this instance.
      */
-    private static int getZoneOffset(String myZone, boolean preferSameZone, String[] availZones) {
+    private static int getZoneOffset(
+            // default
+            String myZone,
+            // false
+            boolean preferSameZone,
+            // defaultZone
+            String[] availZones) {
+
         for (int i = 0; i < availZones.length; i++) {
-            if (myZone != null && (availZones[i].equalsIgnoreCase(myZone.trim()) == preferSameZone)) {
+            if (myZone != null && (
+                    // defaultZone
+                    availZones[i].equalsIgnoreCase(
+                            // default
+                            myZone.trim()
+                    ) ==
+                            // false
+                            preferSameZone)) {
                 return i;
             }
         }
-        logger.warn("DISCOVERY: Could not pick a zone based on preferred zone settings. My zone - {}," +
+        logger.warn("DISCOVERY: Could not pick a zone based on preferred zone settings. My zone -" +
+                " {}," +
                 " preferSameZone- {}. Defaulting to " + availZones[0], myZone, preferSameZone);
 
         return 0;

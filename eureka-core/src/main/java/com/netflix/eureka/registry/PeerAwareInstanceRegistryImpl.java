@@ -86,11 +86,11 @@ import javax.inject.Singleton;
  * </p>
  *
  * @author Karthik Ranganathan, Greg Kim
- *
  */
 @Singleton
 public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry implements PeerAwareInstanceRegistry {
-    private static final Logger logger = LoggerFactory.getLogger(PeerAwareInstanceRegistryImpl.class);
+    private static final Logger logger =
+            LoggerFactory.getLogger(PeerAwareInstanceRegistryImpl.class);
 
     private static final String US_EAST_1 = "us-east-1";
     private static final int PRIME_PEER_NODES_RETRY_MS = 30000;
@@ -121,23 +121,20 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     private final InstanceStatusOverrideRule instanceStatusOverrideRule;
 
-    private Timer timer = new Timer(
-            "ReplicaAwareInstanceRegistry - RenewalThresholdUpdater", true);
+    private Timer timer = new Timer("ReplicaAwareInstanceRegistry - RenewalThresholdUpdater", true);
 
     @Inject
-    public PeerAwareInstanceRegistryImpl(
-            EurekaServerConfig serverConfig,
-            EurekaClientConfig clientConfig,
-            ServerCodecs serverCodecs,
-            EurekaClient eurekaClient
-    ) {
+    public PeerAwareInstanceRegistryImpl(EurekaServerConfig serverConfig,
+                                         EurekaClientConfig clientConfig,
+                                         ServerCodecs serverCodecs, EurekaClient eurekaClient) {
         super(serverConfig, clientConfig, serverCodecs);
         this.eurekaClient = eurekaClient;
         this.numberOfReplicationsLastMin = new MeasuredRate(1000 * 60 * 1);
         // We first check if the instance is STARTING or DOWN, then we check explicit overrides,
         // then we check the status of a potentially existing lease.
-        this.instanceStatusOverrideRule = new FirstMatchWinsCompositeRule(new DownOrStartingRule(),
-                new OverrideExistsRule(overriddenInstanceStatusMap), new LeaseExistsRule());
+        this.instanceStatusOverrideRule =
+                new FirstMatchWinsCompositeRule(new DownOrStartingRule(),
+                        new OverrideExistsRule(overriddenInstanceStatusMap), new LeaseExistsRule());
     }
 
     @Override
@@ -149,7 +146,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     public void init(PeerEurekaNodes peerEurekaNodes) throws Exception {
         this.numberOfReplicationsLastMin.start();
         this.peerEurekaNodes = peerEurekaNodes;
+        // 初始化 responseCache，用来缓存applications
         initializedResponseCache();
+        // 初始化 服务实例心跳记录阈值更新任务 线程池（间隔15分钟）
         scheduleRenewalThresholdUpdateTask();
         initRemoteRegionRegistry();
 
@@ -185,7 +184,6 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * The renewal threshold would be used to determine if the renewals drop
      * dramatically because of network partition and to protect expiring too
      * many instances at a time.
-     *
      */
     private void scheduleRenewalThresholdUpdateTask() {
         timer.schedule(new TimerTask() {
@@ -193,7 +191,10 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                            public void run() {
                                updateRenewalThreshold();
                            }
-                       }, serverConfig.getRenewalThresholdUpdateIntervalMs(),
+                       },
+                // 15分钟
+                serverConfig.getRenewalThresholdUpdateIntervalMs(),
+                // 15分钟
                 serverConfig.getRenewalThresholdUpdateIntervalMs());
     }
 
@@ -207,20 +208,26 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         // Copy entire entry from neighboring DS node
         int count = 0;
 
+        // // eureka.numberRegistrySyncRetries = 5
         for (int i = 0; ((i < serverConfig.getRegistrySyncRetries()) && (count == 0)); i++) {
             if (i > 0) {
                 try {
+                    // registrySyncRetryWaitMs = 30 * 1000
                     Thread.sleep(serverConfig.getRegistrySyncRetryWaitMs());
                 } catch (InterruptedException e) {
                     logger.warn("Interrupted during registry transfer..");
                     break;
                 }
             }
+            // 获取本地缓存的eureka server集群
             Applications apps = eurekaClient.getApplications();
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
                     try {
-                        if (isRegisterable(instance)) {
+                        if (
+                            // true
+                                isRegisterable(instance)) {
+                            //
                             register(instance, instance.getLeaseInfo().getDurationInSecs(), true);
                             count++;
                         }
@@ -236,8 +243,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     @Override
     public void openForTraffic(ApplicationInfoManager applicationInfoManager, int count) {
         // Renewals happen every 30 seconds and for a minute it should be a factor of 2.
-        this.expectedNumberOfRenewsPerMin = count * 2;
+        this.expectedNumberOfRenewsPerMin = count * 2; // 后续版本通过 updateRenewsPerMinThreshold() 方法已修复
         this.numberOfRenewsPerMinThreshold =
+                // // eureka.renewalPercentThreshold = 0.85
                 (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
         logger.info("Got " + count + " instances from neighboring DS node");
         logger.info("Renew threshold is: " + numberOfRenewsPerMinThreshold);
@@ -245,9 +253,12 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         if (count > 0) {
             this.peerInstancesTransferEmptyOnStartup = false;
         }
-        DataCenterInfo.Name selfName = applicationInfoManager.getInfo().getDataCenterInfo().getName();
+        DataCenterInfo.Name selfName =
+                applicationInfoManager.getInfo().getDataCenterInfo().getName();
         boolean isAws = Name.Amazon == selfName;
-        if (isAws && serverConfig.shouldPrimeAwsReplicaConnections()) {
+        if (
+            // false
+                isAws && serverConfig.shouldPrimeAwsReplicaConnections()) {
             logger.info("Priming AWS connections for all replicas..");
             primeAwsReplicas(applicationInfoManager);
         }
@@ -278,7 +289,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         while (!areAllPeerNodesPrimed) {
             String peerHostName = null;
             try {
-                Application eurekaApps = this.getApplication(applicationInfoManager.getInfo().getAppName(), false);
+                Application eurekaApps =
+                        this.getApplication(applicationInfoManager.getInfo().getAppName(), false);
                 if (eurekaApps == null) {
                     areAllPeerNodesPrimed = true;
                     logger.info("No peers needed to prime.");
@@ -288,24 +300,18 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                     for (InstanceInfo peerInstanceInfo : eurekaApps.getInstances()) {
                         LeaseInfo leaseInfo = peerInstanceInfo.getLeaseInfo();
                         // If the lease is expired - do not worry about priming
-                        if (System.currentTimeMillis() > (leaseInfo
-                                .getRenewalTimestamp() + (leaseInfo
-                                .getDurationInSecs() * 1000))
-                                + (2 * 60 * 1000)) {
+                        if (System.currentTimeMillis() > (leaseInfo.getRenewalTimestamp() + (leaseInfo.getDurationInSecs() * 1000)) + (2 * 60 * 1000)) {
                             continue;
                         }
                         peerHostName = peerInstanceInfo.getHostName();
-                        logger.info("Trying to send heartbeat for the eureka server at {} to make sure the " +
-                                "network channels are open", peerHostName);
-                        // Only try to contact the eureka nodes that are in this instance's registry - because
+                        logger.info("Trying to send heartbeat for the eureka server at {} to " +
+                                "make" + " sure the " + "network channels are open", peerHostName);
+                        // Only try to contact the eureka nodes that are in this instance's
+                        // registry - because
                         // the other instances may be legitimately down
                         if (peerHostName.equalsIgnoreCase(new URI(node.getServiceUrl()).getHost())) {
-                            node.heartbeat(
-                                    peerInstanceInfo.getAppName(),
-                                    peerInstanceInfo.getId(),
-                                    peerInstanceInfo,
-                                    null,
-                                    true);
+                            node.heartbeat(peerInstanceInfo.getAppName(),
+                                    peerInstanceInfo.getId(), peerInstanceInfo, null, true);
                         }
                     }
                 }
@@ -330,7 +336,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * get the registry information from the peer eureka nodes at start up.
      *
      * @return false - if the instances count from a replica transfer returned
-     *         zero and if the wait time has not elapsed, otherwise returns true
+     * zero and if the wait time has not elapsed, otherwise returns true
      */
     @Override
     public boolean shouldAllowAccess(boolean remoteRegionRequired) {
@@ -340,7 +346,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             }
         }
         if (remoteRegionRequired) {
-            for (RemoteRegionRegistry remoteRegionRegistry : this.regionNameVSRemoteRegistry.values()) {
+            for (RemoteRegionRegistry remoteRegionRegistry :
+                    this.regionNameVSRemoteRegistry.values()) {
                 if (!remoteRegionRegistry.isReadyForServingData()) {
                     return false;
                 }
@@ -354,12 +361,12 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     }
 
     /**
-     * @deprecated use {@link com.netflix.eureka.cluster.PeerEurekaNodes#getPeerEurekaNodes()} directly.
-     *
+     * @return the list of replica nodes.
+     * @deprecated use {@link com.netflix.eureka.cluster.PeerEurekaNodes#getPeerEurekaNodes()}
+     * directly.
+     * <p>
      * Gets the list of peer eureka nodes which is the list to replicate
      * information to.
-     *
-     * @return the list of replica nodes.
      */
     @Deprecated
     public List<PeerEurekaNode> getReplicaNodes() {
@@ -373,13 +380,13 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * java.lang.String, long, boolean)
      */
     @Override
-    public boolean cancel(final String appName, final String id,
-                          final boolean isReplication) {
+    public boolean cancel(final String appName, final String id, final boolean isReplication) {
         if (super.cancel(appName, id, isReplication)) {
             replicateToPeers(Action.Cancel, appName, id, null, null, isReplication);
             synchronized (lock) {
                 if (this.expectedNumberOfRenewsPerMin > 0) {
-                    // Since the client wants to cancel it, reduce the threshold (1 for 30 seconds, 2 for a minute)
+                    // Since the client wants to cancel it, reduce the threshold (1 for 30
+                    // seconds, 2 for a minute)
                     this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin - 2;
                     this.numberOfRenewsPerMinThreshold =
                             (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
@@ -395,20 +402,27 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * this information to all peer eureka nodes. If this is replication event
      * from other replica nodes then it is not replicated.
      *
-     * @param info
-     *            the {@link InstanceInfo} to be registered and replicated.
-     * @param isReplication
-     *            true if this is a replication event from other replica nodes,
-     *            false otherwise.
+     * @param info          the {@link InstanceInfo} to be registered and replicated.
+     * @param isReplication true if this is a replication event from other replica nodes,
+     *                      false otherwise.
      */
     @Override
     public void register(final InstanceInfo info, final boolean isReplication) {
+        // 90秒
         int leaseDuration = Lease.DEFAULT_DURATION_IN_SECS;
-        if (info.getLeaseInfo() != null && info.getLeaseInfo().getDurationInSecs() > 0) {
+        if (info.getLeaseInfo() != null &&
+                // 90秒
+                info.getLeaseInfo().getDurationInSecs() > 0) {
+            // 90秒
             leaseDuration = info.getLeaseInfo().getDurationInSecs();
         }
-        super.register(info, leaseDuration, isReplication);
-        replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null, isReplication);
+        // AbstractInstanceRegistry.register
+        super.register(info,
+                // 90秒
+                leaseDuration, isReplication);
+        //
+        replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null,
+                isReplication);
     }
 
     /*
@@ -417,6 +431,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * @see com.netflix.eureka.registry.InstanceRegistry#renew(java.lang.String,
      * java.lang.String, long, boolean)
      */
+    @Override
     public boolean renew(final String appName, final String id, final boolean isReplication) {
         if (super.renew(appName, id, isReplication)) {
             replicateToPeers(Action.Heartbeat, appName, id, null, null, isReplication);
@@ -444,10 +459,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     }
 
     @Override
-    public boolean deleteStatusOverride(String appName, String id,
-                                        InstanceStatus newStatus,
-                                        String lastDirtyTimestamp,
-                                        boolean isReplication) {
+    public boolean deleteStatusOverride(String appName, String id, InstanceStatus newStatus,
+                                        String lastDirtyTimestamp, boolean isReplication) {
         if (super.deleteStatusOverride(appName, id, newStatus, lastDirtyTimestamp, isReplication)) {
             replicateToPeers(Action.DeleteStatusOverride, appName, id, null, null, isReplication);
             return true;
@@ -460,12 +473,13 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * event is a replication from other nodes, then it is not replicated to
      * other nodes.
      *
-     * @param asgName the asg name for which the status needs to be replicated.
-     * @param newStatus the {@link ASGStatus} information that needs to be replicated.
+     * @param asgName       the asg name for which the status needs to be replicated.
+     * @param newStatus     the {@link ASGStatus} information that needs to be replicated.
      * @param isReplication true if this is a replication event from other nodes, false otherwise.
      */
     @Override
-    public void statusUpdate(final String asgName, final ASGStatus newStatus, final boolean isReplication) {
+    public void statusUpdate(final String asgName, final ASGStatus newStatus,
+                             final boolean isReplication) {
         // If this is replicated from an other node, do not try to replicate again.
         if (isReplication) {
             return;
@@ -478,10 +492,22 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
 
     @Override
     public boolean isLeaseExpirationEnabled() {
+        // eureka.enableSelfPreservation = true
+        // 默认是true，即开启自我保护机制，会计算比较 心跳记录期望值 与 心跳记录实际值，返回leaseExpirationEnabled【租约过期是否被允许】
+        // 设置 eureka.enableSelfPreservation = false
+        // 的话，意味着关闭自我保护机制，leaseExpirationEnabled【租约过期是否被允许】返回true【允许清理故障的服务实例】
         if (!isSelfPreservationModeEnabled()) {
             // The self preservation mode is disabled, hence allowing the instances to expire.
+            // 自我保护模式被开启，一次允许实例被过期清除。
             return true;
         }
+        // numberOfRenewsPerMinThreshold：期望每分钟有多少次心跳发送记录。每次服务注册和下线时统计。
+        // getNumOfRenewsInLastMin()：最近一个完整周期内的心跳发送次数（60秒一个周期，最近的一分钟内发送心跳的次数）。每次续约时统计。
+        // 假设存在10个服务实例，eureka client 每30秒发送一次心跳。
+        // 期望值：numberOfRenewsPerMinThreshold 应该是 10 * 2 = 20（硬编码，因此发送心跳周期的改变其实是改变不了期望值的变化）。
+        // 实际值：getNumOfRenewsInLastMin() 最近一个完整周期内的统计值
+        // 此处考虑的是eureka server剔除服务实例的情况，不是 eureka client 主动下线的情况。
+        // 因此 期望值 与 实际值 存在偏差（存在 eureka client 没有发送心跳）
         return numberOfRenewsPerMinThreshold > 0 && getNumOfRenewsInLastMin() > numberOfRenewsPerMinThreshold;
     }
 
@@ -532,10 +558,11 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             synchronized (lock) {
                 // Update threshold only if the threshold is greater than the
                 // current expected threshold of if the self preservation is disabled.
-                if ((count * 2) > (serverConfig.getRenewalPercentThreshold() * numberOfRenewsPerMinThreshold)
-                        || (!this.isSelfPreservationModeEnabled())) {
+                // 只有当阈值大于当前预期阈值 或者 自我保护未开启，才更新阈值。
+                if ((count * 2) > (serverConfig.getRenewalPercentThreshold() * numberOfRenewsPerMinThreshold) || (!this.isSelfPreservationModeEnabled())) {
                     this.expectedNumberOfRenewsPerMin = count * 2;
-                    this.numberOfRenewsPerMinThreshold = (int) ((count * 2) * serverConfig.getRenewalPercentThreshold());
+                    this.numberOfRenewsPerMinThreshold =
+                            (int) ((count * 2) * serverConfig.getRenewalPercentThreshold());
                 }
             }
             logger.info("Current renewal threshold is : {}", numberOfRenewsPerMinThreshold);
@@ -552,7 +579,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      */
     @Override
     public List<Application> getSortedApplications() {
-        List<Application> apps = new ArrayList<Application>(getApplications().getRegisteredApplications());
+        List<Application> apps =
+                new ArrayList<Application>(getApplications().getRegisteredApplications());
         Collections.sort(apps, APP_COMPARATOR);
         return apps;
     }
@@ -562,9 +590,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      *
      * @return a long value representing the number of <em>renewals</em> in the last minute.
      */
-    @com.netflix.servo.annotations.Monitor(name = "numOfReplicationsInLastMin",
-            description = "Number of total replications received in the last minute",
-            type = com.netflix.servo.annotations.DataSourceType.GAUGE)
+    @com.netflix.servo.annotations.Monitor(name = "numOfReplicationsInLastMin", description =
+            "Number of total replications received in the last minute", type =
+            com.netflix.servo.annotations.DataSourceType.GAUGE)
     public long getNumOfReplicationsInLastMin() {
         return numberOfReplicationsLastMin.getCount();
     }
@@ -574,13 +602,17 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      *
      * @return 0 if the renewals are greater than threshold, 1 otherwise.
      */
-    @com.netflix.servo.annotations.Monitor(name = "isBelowRenewThreshold", description = "0 = false, 1 = true",
-            type = com.netflix.servo.annotations.DataSourceType.GAUGE)
+    @com.netflix.servo.annotations.Monitor(name = "isBelowRenewThreshold", description =
+            "0 = " + "false, 1 = true", type = com.netflix.servo.annotations.DataSourceType.GAUGE)
     @Override
     public int isBelowRenewThresold() {
-        if ((getNumOfRenewsInLastMin() <= numberOfRenewsPerMinThreshold)
-                &&
-                ((this.startupTime > 0) && (System.currentTimeMillis() > this.startupTime + (serverConfig.getWaitTimeInMsWhenSyncEmpty())))) {
+        if (
+                (getNumOfRenewsInLastMin() <= numberOfRenewsPerMinThreshold) &&
+                        (
+                                (this.startupTime > 0) &&
+                                        (System.currentTimeMillis() > this.startupTime + (serverConfig.getWaitTimeInMsWhenSyncEmpty()))
+                        )
+        ) {
             return 1;
         } else {
             return 0;
@@ -588,15 +620,18 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     }
 
     /**
-     * Checks if an instance is registerable in this region. Instances from other regions are rejected.
+     * Checks if an instance is registerable in this region. Instances from other regions are
+     * rejected.
      *
-     * @param instanceInfo  th instance info information of the instance
+     * @param instanceInfo th instance info information of the instance
      * @return true, if it can be registered in this server, false otherwise.
      */
     public boolean isRegisterable(InstanceInfo instanceInfo) {
         DataCenterInfo datacenterInfo = instanceInfo.getDataCenterInfo();
         String serverRegion = clientConfig.getRegion();
-        if (AmazonInfo.class.isInstance(datacenterInfo)) {
+        if (
+            // false
+                AmazonInfo.class.isInstance(datacenterInfo)) {
             AmazonInfo info = AmazonInfo.class.cast(instanceInfo.getDataCenterInfo());
             String availabilityZone = info.get(MetaDataKey.availabilityZone);
             // Can be null for dev environments in non-AWS data center
@@ -613,21 +648,21 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     /**
      * Replicates all eureka actions to peer eureka nodes except for replication
      * traffic to this node.
-     *
      */
-    private void replicateToPeers(Action action, String appName, String id,
-                                  InstanceInfo info /* optional */,
-                                  InstanceStatus newStatus /* optional */, boolean isReplication) {
+    private void replicateToPeers(Action action, String appName, String id, InstanceInfo info /*
+    optional */, InstanceStatus newStatus /* optional */, boolean isReplication) {
         Stopwatch tracer = action.getTimer().start();
         try {
             if (isReplication) {
                 numberOfReplicationsLastMin.increment();
             }
-            // If it is a replication already, do not replicate again as this will create a poison replication
+            // If it is a replication already, do not replicate again as this will create a
+            // poison replication
             if (peerEurekaNodes == Collections.EMPTY_LIST || isReplication) {
                 return;
             }
 
+            // 所有eureka server节点
             for (final PeerEurekaNode node : peerEurekaNodes.getPeerEurekaNodes()) {
                 // If the url represents this host, do not replicate to yourself.
                 if (peerEurekaNodes.isThisMyUrl(node.getServiceUrl())) {
@@ -643,10 +678,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     /**
      * Replicates all instance changes to peer eureka nodes except for
      * replication traffic to this node.
-     *
      */
-    private void replicateInstanceActionsToPeers(Action action, String appName,
-                                                 String id, InstanceInfo info, InstanceStatus newStatus,
+    private void replicateInstanceActionsToPeers(Action action, String appName, String id,
+                                                 InstanceInfo info, InstanceStatus newStatus,
                                                  PeerEurekaNode node) {
         try {
             InstanceInfo infoFromRegistry = null;
@@ -673,7 +707,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                     break;
             }
         } catch (Throwable t) {
-            logger.error("Cannot replicate information to {} for action {}", node.getServiceUrl(), action.name(), t);
+            logger.error("Cannot replicate information to {} for action {}", node.getServiceUrl()
+                    , action.name(), t);
         }
     }
 
@@ -681,8 +716,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      * Replicates all ASG status changes to peer eureka nodes except for
      * replication traffic to this node.
      */
-    private void replicateASGInfoToReplicaNodes(final String asgName,
-                                                final ASGStatus newStatus, final PeerEurekaNode node) {
+    private void replicateASGInfoToReplicaNodes(final String asgName, final ASGStatus newStatus,
+                                                final PeerEurekaNode node) {
         CurrentRequestVersion.set(Version.V2);
         try {
             node.statusUpdate(asgName, newStatus);
@@ -692,8 +727,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     }
 
     @Override
-    @com.netflix.servo.annotations.Monitor(name = "localRegistrySize",
-            description = "Current registry size", type = DataSourceType.GAUGE)
+    @com.netflix.servo.annotations.Monitor(name = "localRegistrySize", description =
+            "Current " + "registry size", type = DataSourceType.GAUGE)
     public long getLocalRegistrySize() {
         return super.getLocalRegistrySize();
     }

@@ -96,12 +96,18 @@ public class RedirectingEurekaHttpClient extends EurekaHttpClientDecorator {
         }
     }
 
-    public static TransportClientFactory createFactory(final TransportClientFactory delegateFactory) {
+    public static TransportClientFactory createFactory(
+            // metricsFactory
+            final TransportClientFactory delegateFactory) {
         final DnsServiceImpl dnsService = new DnsServiceImpl();
         return new TransportClientFactory() {
             @Override
             public EurekaHttpClient newClient(EurekaEndpoint endpoint) {
-                return new RedirectingEurekaHttpClient(endpoint.getServiceUrl(), delegateFactory, dnsService);
+                return new RedirectingEurekaHttpClient(
+                        endpoint.getServiceUrl(),
+                        // metricsFactory
+                        delegateFactory,
+                        dnsService);
             }
 
             @Override

@@ -23,6 +23,7 @@ public abstract class EurekaClientFactoryBuilder<F, B extends EurekaClientFactor
     protected boolean allowRedirect;
     protected boolean systemSSL;
     protected String clientName;
+    // full
     protected EurekaAccept eurekaAccept;
     protected int maxConnectionsPerHost = DEFAULT_MAX_CONNECTIONS_PER_HOST;
     protected int maxTotalConnections = DEFAULT_MAX_TOTAL_CONNECTIONS;
@@ -42,7 +43,9 @@ public abstract class EurekaClientFactoryBuilder<F, B extends EurekaClientFactor
     protected AbstractEurekaIdentity clientIdentity;
     
     public B withClientConfig(EurekaClientConfig clientConfig) {
-        withClientAccept(EurekaAccept.fromString(clientConfig.getClientDataAccept()));
+        withClientAccept(
+                // full
+                EurekaAccept.fromString(clientConfig.getClientDataAccept()));
         withAllowRedirect(clientConfig.allowRedirects());
         withConnectionTimeout(clientConfig.getEurekaServerConnectTimeoutSeconds() * 1000);
         withReadTimeout(clientConfig.getEurekaServerReadTimeoutSeconds() * 1000);
@@ -65,6 +68,7 @@ public abstract class EurekaClientFactoryBuilder<F, B extends EurekaClientFactor
     }
 
     public B withClientAccept(EurekaAccept eurekaAccept) {
+        // full
         this.eurekaAccept = eurekaAccept;
         return self();
     }

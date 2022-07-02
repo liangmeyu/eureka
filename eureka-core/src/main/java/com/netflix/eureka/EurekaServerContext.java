@@ -26,7 +26,7 @@ import com.netflix.eureka.resources.ServerCodecs;
  */
 public interface EurekaServerContext {
 
-    void initialize() throws Exception;
+    void  initialize() throws Exception;
 
     void shutdown() throws Exception;
 

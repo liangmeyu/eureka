@@ -41,7 +41,8 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
             int statusCode = httpResponse.getStatusCode();
             Object entity = httpResponse.getEntity();
             if (logger.isDebugEnabled()) {
-                logger.debug("Replication task {} completed with status {}, (includes entity {})", task.getTaskName(), statusCode, entity != null);
+                logger.debug("Replication task {} completed with status {}, (includes entity {})"
+                        , task.getTaskName(), statusCode, entity != null);
             }
             if (isSuccess(statusCode)) {
                 task.handleSuccess();
@@ -57,26 +58,38 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
                 logNetworkErrorSample(task, e);
                 return ProcessingResult.TransientError;
             } else {
-                logger.error(peerId + ": " + task.getTaskName() + "Not re-trying this exception because it does not seem to be a network exception", e);
+                logger.error(peerId + ": " + task.getTaskName() + "Not re-trying this exception " +
+                        "because it does not seem to be a network exception", e);
                 return ProcessingResult.PermanentError;
             }
         }
         return ProcessingResult.Success;
     }
 
+    // ReplicationTaskProcessor.java
+    /**
+     * 同步任务处理器，处理批处理任务
+     *
+     * @param tasks
+     * @return
+     */
     @Override
     public ProcessingResult process(List<ReplicationTask> tasks) {
         ReplicationList list = createReplicationListOf(tasks);
         try {
-            EurekaHttpResponse<ReplicationListResponse> response = replicationClient.submitBatchUpdates(list);
+            // 提交批处理任务
+            EurekaHttpResponse<ReplicationListResponse> response =
+                    replicationClient.submitBatchUpdates(list);
             int statusCode = response.getStatusCode();
             if (!isSuccess(statusCode)) {
                 if (statusCode == 503) {
-                    logger.warn("Server busy (503) HTTP status code received from the peer {}; rescheduling tasks after delay", peerId);
+                    logger.warn("Server busy (503) HTTP status code received from the peer {}; " +
+                            "rescheduling tasks after delay", peerId);
                     return ProcessingResult.Congestion;
                 } else {
                     // Unexpected error returned from the server. This should ideally never happen.
-                    logger.error("Batch update failure with HTTP status code {}; discarding {} replication tasks", statusCode, tasks.size());
+                    logger.error("Batch update failure with HTTP status code {}; discarding {} " +
+                            "replication tasks", statusCode, tasks.size());
                     return ProcessingResult.PermanentError;
                 }
             } else {
@@ -87,7 +100,8 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
                 logNetworkErrorSample(null, e);
                 return ProcessingResult.TransientError;
             } else {
-                logger.error("Not re-trying this exception because it does not seem to be a network exception", e);
+                logger.error("Not re-trying this exception because it does not seem to be a " +
+                        "network exception", e);
                 return ProcessingResult.PermanentError;
             }
         }
@@ -114,10 +128,12 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
         }
     }
 
-    private void handleBatchResponse(List<ReplicationTask> tasks, List<ReplicationInstanceResponse> responseList) {
+    private void handleBatchResponse(List<ReplicationTask> tasks,
+                                     List<ReplicationInstanceResponse> responseList) {
         if (tasks.size() != responseList.size()) {
             // This should ideally never happen unless there is a bug in the software.
-            logger.error("Batch response size different from submitted task list ({} != {}); skipping response analysis", responseList.size(), tasks.size());
+            logger.error("Batch response size different from submitted task list ({} != {}); " +
+                    "skipping response analysis", responseList.size(), tasks.size());
             return;
         }
         for (int i = 0; i < tasks.size(); i++) {
@@ -156,8 +172,7 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
      * Check if the exception is some sort of network timeout exception (ie)
      * read,connect.
      *
-     * @param e
-     *            The exception for which the information needs to be found.
+     * @param e The exception for which the information needs to be found.
      * @return true, if it is a network timeout, false otherwise.
      */
     private static boolean isNetworkConnectException(Throwable e) {
@@ -176,13 +191,15 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
         instanceBuilder.withId(task.getId());
         InstanceInfo instanceInfo = task.getInstanceInfo();
         if (instanceInfo != null) {
-            String overriddenStatus = task.getOverriddenStatus() == null ? null : task.getOverriddenStatus().name();
+            String overriddenStatus = task.getOverriddenStatus() == null ? null :
+                    task.getOverriddenStatus().name();
             instanceBuilder.withOverriddenStatus(overriddenStatus);
             instanceBuilder.withLastDirtyTimestamp(instanceInfo.getLastDirtyTimestamp());
             if (task.shouldReplicateInstanceInfo()) {
                 instanceBuilder.withInstanceInfo(instanceInfo);
             }
-            String instanceStatus = instanceInfo.getStatus() == null ? null : instanceInfo.getStatus().name();
+            String instanceStatus = instanceInfo.getStatus() == null ? null :
+                    instanceInfo.getStatus().name();
             instanceBuilder.withStatus(instanceStatus);
         }
         instanceBuilder.withAction(task.getAction());

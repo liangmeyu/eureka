@@ -34,6 +34,7 @@ public class ConfigClusterResolver implements ClusterResolver<AwsEndpoint> {
 
     @Override
     public List<AwsEndpoint> getClusterEndpoints() {
+        // eureka.shouldUseDns=false
         if (clientConfig.shouldUseDnsForFetchingServiceUrls()) {
             if (logger.isInfoEnabled()) {
                 logger.info("Resolving eureka endpoints via DNS: {}", getDNSName());
@@ -41,6 +42,7 @@ public class ConfigClusterResolver implements ClusterResolver<AwsEndpoint> {
             return getClusterEndpointsFromDns();
         } else {
             logger.info("Resolving eureka endpoints via configuration");
+            // []
             return getClusterEndpointsFromConfig();
         }
     }
@@ -69,13 +71,25 @@ public class ConfigClusterResolver implements ClusterResolver<AwsEndpoint> {
     }
 
     private List<AwsEndpoint> getClusterEndpointsFromConfig() {
-        String[] availZones = clientConfig.getAvailabilityZones(clientConfig.getRegion());
+        // eureka.default.availabilityZones = defaultZone
+        String[] availZones = clientConfig.getAvailabilityZones(
+                // eureka.region = default
+                clientConfig.getRegion());
+
+        // myZone = default
         String myZone = InstanceInfo.getZone(availZones, myInstanceInfo);
 
+        // defaultZone:[]
         Map<String, List<String>> serviceUrls = EndpointUtils
-                .getServiceUrlsMapFromConfig(clientConfig, myZone, clientConfig.shouldPreferSameZoneEureka());
+                .getServiceUrlsMapFromConfig(clientConfig,
+                        // default
+                        myZone,
+                        // eureka.preferSameZone = false
+                        clientConfig.shouldPreferSameZoneEureka());
 
+        // []
         List<AwsEndpoint> endpoints = new ArrayList<>();
+        // defaultZone:[]
         for (String zone : serviceUrls.keySet()) {
             for (String url : serviceUrls.get(zone)) {
                 try {
@@ -90,7 +104,9 @@ public class ConfigClusterResolver implements ClusterResolver<AwsEndpoint> {
             logger.debug("Config resolved to {}", endpoints);
         }
 
-        if (endpoints.isEmpty()) {
+        if (
+                // true
+                endpoints.isEmpty()) {
             logger.error("Cannot resolve to any endpoints from provided configuration: {}", serviceUrls);
         }
 

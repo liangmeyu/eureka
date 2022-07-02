@@ -22,7 +22,7 @@ import com.netflix.eureka.registry.AbstractInstanceRegistry;
  * Describes a time-based availability of a {@link T}. Purpose is to avoid
  * accumulation of instances in {@link AbstractInstanceRegistry} as result of ungraceful
  * shutdowns that is not uncommon in AWS environments.
- *
+ * <p>
  * If a lease elapses without renewals, it will eventually expire consequently
  * marking the associated {@link T} for immediate eviction - this is similar to
  * an explicit cancellation except that there is no communication between the
@@ -34,7 +34,9 @@ public class Lease<T> {
 
     enum Action {
         Register, Cancel, Renew
-    };
+    }
+
+    ;
 
     public static final int DEFAULT_DURATION_IN_SECS = 90;
 
@@ -46,10 +48,13 @@ public class Lease<T> {
     private volatile long lastUpdateTimestamp;
     private long duration;
 
-    public Lease(T r, int durationInSecs) {
+    public Lease(T r,
+                 // 90秒
+                 int durationInSecs) {
         holder = r;
         registrationTimestamp = System.currentTimeMillis();
         lastUpdateTimestamp = registrationTimestamp;
+        // 90秒
         duration = (durationInSecs * 1000);
 
     }
@@ -99,16 +104,30 @@ public class Lease<T> {
 
     /**
      * Checks if the lease of a given {@link com.netflix.appinfo.InstanceInfo} has expired or not.
-     *
-     * Note that due to renew() doing the 'wrong" thing and setting lastUpdateTimestamp to +duration more than
-     * what it should be, the expiry will actually be 2 * duration. This is a minor bug and should only affect
-     * instances that ungracefully shutdown. Due to possible wide ranging impact to existing usage, this will
+     * <p>
+     * Note that due to renew() doing the 'wrong" thing and setting lastUpdateTimestamp to
+     * +duration more than
+     * what it should be, the expiry will actually be 2 * duration. This is a minor bug and
+     * should only affect
+     * instances that ungracefully shutdown. Due to possible wide ranging impact to existing
+     * usage, this will
      * not be fixed.
      *
      * @param additionalLeaseMs any additional lease time to add to the lease evaluation in ms.
      */
     public boolean isExpired(long additionalLeaseMs) {
-        return (evictionTimestamp > 0 || System.currentTimeMillis() > (lastUpdateTimestamp + duration + additionalLeaseMs));
+        return (
+                // 服务下线的时间戳
+                evictionTimestamp > 0 ||
+                        // lastUpdateTimestamp：最后一次更新的时间戳（最后一次续约更新的时间戳 lastUpdateTimestamp =
+                        // System.currentTimeMillis() + duration）
+                        // duration = 90秒
+                        // additionalLeaseMs 补偿时间
+                        // (上次任务执行延迟时长，避免由于上次任务延迟完成而误判是超过60秒（任务间隔）还没有收到心跳认为心跳超时）
+                        // additionalLeaseMs 可以认为是 lastUpdateTimestamp 的偏移量。
+                        // lastUpdateTimestamp+=additionalLeaseMs 作为最后一次续约的时间戳。
+                        // 当前时间 > 调整后的续约时间戳 + duration 才算过期
+                        System.currentTimeMillis() > (lastUpdateTimestamp + duration + additionalLeaseMs));
     }
 
     /**
@@ -122,7 +141,8 @@ public class Lease<T> {
 
     /**
      * Gets the milliseconds since epoch when the lease was last renewed.
-     * Note that the value returned here is actually not the last lease renewal time but the renewal + duration.
+     * Note that the value returned here is actually not the last lease renewal time but the
+     * renewal + duration.
      *
      * @return the milliseconds since epoch when the lease was last renewed.
      */

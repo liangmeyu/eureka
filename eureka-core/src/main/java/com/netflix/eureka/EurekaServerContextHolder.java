@@ -23,6 +23,7 @@ package com.netflix.eureka;
  */
 public class EurekaServerContextHolder {
 
+
     private final EurekaServerContext serverContext;
 
     private EurekaServerContextHolder(EurekaServerContext serverContext) {
@@ -32,6 +33,7 @@ public class EurekaServerContextHolder {
     public EurekaServerContext getServerContext() {
         return this.serverContext;
     }
+
 
     private static EurekaServerContextHolder holder;
 

@@ -60,7 +60,6 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * @author Karthik Ranganathan
- *
  */
 @Serializer("com.netflix.discovery.converters.EntityBodyConverter")
 @XStreamAlias("applications")
@@ -75,14 +74,21 @@ public class Applications {
     @XStreamImplicit
     private AbstractQueue<Application> applications;
 
-    private Map<String, Application> appNameApplicationMap = new ConcurrentHashMap<String, Application>();
-    private Map<String, AbstractQueue<InstanceInfo>> virtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
-    private Map<String, AbstractQueue<InstanceInfo>> secureVirtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
-    private Map<String, AtomicLong> virtualHostNameIndexMap = new ConcurrentHashMap<String, AtomicLong>();
-    private Map<String, AtomicLong> secureVirtualHostNameIndexMap = new ConcurrentHashMap<String, AtomicLong>();
+    private Map<String, Application> appNameApplicationMap = new ConcurrentHashMap<String,
+            Application>();
+    private Map<String, AbstractQueue<InstanceInfo>> virtualHostNameAppMap =
+            new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
+    private Map<String, AbstractQueue<InstanceInfo>> secureVirtualHostNameAppMap =
+            new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
+    private Map<String, AtomicLong> virtualHostNameIndexMap = new ConcurrentHashMap<String,
+            AtomicLong>();
+    private Map<String, AtomicLong> secureVirtualHostNameIndexMap = new ConcurrentHashMap<String,
+            AtomicLong>();
 
-    private Map<String, AtomicReference<List<InstanceInfo>>> shuffleVirtualHostNameMap = new ConcurrentHashMap<String, AtomicReference<List<InstanceInfo>>>();
-    private Map<String, AtomicReference<List<InstanceInfo>>> shuffledSecureVirtualHostNameMap = new ConcurrentHashMap<String, AtomicReference<List<InstanceInfo>>>();
+    private Map<String, AtomicReference<List<InstanceInfo>>> shuffleVirtualHostNameMap =
+            new ConcurrentHashMap<String, AtomicReference<List<InstanceInfo>>>();
+    private Map<String, AtomicReference<List<InstanceInfo>>> shuffledSecureVirtualHostNameMap =
+            new ConcurrentHashMap<String, AtomicReference<List<InstanceInfo>>>();
 
     private String appsHashCode;
 
@@ -90,7 +96,7 @@ public class Applications {
      * Create a new, empty Eureka application list.
      */
     public Applications() {
-        this.applications = new ConcurrentLinkedQueue<Application>();
+        this.applications = new ConcurrentLinkedQueue<>();
     }
 
     /**
@@ -110,7 +116,8 @@ public class Applications {
     }
 
     /**
-     * Create a new Eureka application list, based on the provided applications.  The provided container is
+     * Create a new Eureka application list, based on the provided applications.  The provided
+     * container is
      * not modified.
      *
      * @param apps the initial list of apps to store in this applications list
@@ -123,8 +130,7 @@ public class Applications {
     /**
      * Add the <em>application</em> to the list.
      *
-     * @param app
-     *            the <em>application</em> to be added.
+     * @param app the <em>application</em> to be added.
      */
     public void addApplication(Application app) {
         appNameApplicationMap.put(app.getName().toUpperCase(Locale.ROOT), app);
@@ -149,10 +155,9 @@ public class Applications {
      * Gets the list of all registered <em>applications</em> for the given
      * application name.
      *
-     * @param appName
-     *            the application name for which the result need to be fetched.
+     * @param appName the application name for which the result need to be fetched.
      * @return the list of registered applications for the given application
-     *         name.
+     * name.
      */
     public Application getRegisteredApplications(String appName) {
         return appNameApplicationMap.get(appName.toUpperCase(Locale.ROOT));
@@ -161,9 +166,8 @@ public class Applications {
     /**
      * Gets the list of <em>instances</em> associated to a virtual host name.
      *
-     * @param virtualHostName
-     *            the virtual hostname for which the instances need to be
-     *            returned.
+     * @param virtualHostName the virtual hostname for which the instances need to be
+     *                        returned.
      * @return list of <em>instances</em>.
      */
     public List<InstanceInfo> getInstancesByVirtualHostName(String virtualHostName) {
@@ -180,9 +184,8 @@ public class Applications {
      * Gets the list of secure <em>instances</em> associated to a virtual host
      * name.
      *
-     * @param secureVirtualHostName
-     *            the virtual hostname for which the secure instances need to be
-     *            returned.
+     * @param secureVirtualHostName the virtual hostname for which the secure instances need to be
+     *                              returned.
      * @return list of <em>instances</em>.
      */
     public List<InstanceInfo> getInstancesBySecureVirtualHostName(String secureVirtualHostName) {
@@ -229,8 +232,8 @@ public class Applications {
 
     /**
      * Used by the eureka server. Not for external use.
-     * @return the string indicating the hashcode based on the applications stored.
      *
+     * @return the string indicating the hashcode based on the applications stored.
      */
     @JsonIgnore // Handled directly due to legacy name formatting
     public String getAppsHashCode() {
@@ -242,7 +245,7 @@ public class Applications {
      * comparison of instances between eureka server and eureka client.
      *
      * @return the internal hash code representation indicating the information
-     *         about the instances.
+     * about the instances.
      */
     @JsonIgnore
     public String getReconcileHashCode() {
@@ -252,8 +255,10 @@ public class Applications {
     }
 
     /**
-     * Populates the provided instance count map.  The instance count map is used as part of the general
+     * Populates the provided instance count map.  The instance count map is used as part of the
+     * general
      * app list synchronization mechanism.
+     *
      * @param instanceCountMap the map to populate
      */
     public void populateInstanceCountMap(TreeMap<String, AtomicInteger> instanceCountMap) {
@@ -270,8 +275,10 @@ public class Applications {
     }
 
     /**
-     * Gets the reconciliation hashcode.  The hashcode is used to determine whether the applications list
+     * Gets the reconciliation hashcode.  The hashcode is used to determine whether the
+     * applications list
      * has changed since the last time it was acquired.
+     *
      * @param instanceCountMap the instance count map to use for generating the hash
      * @return the hash code for this instance
      */
@@ -289,8 +296,7 @@ public class Applications {
      * Gets the exact difference between this applications instance and another
      * one.
      *
-     * @param apps
-     *            the applications for which to compare this one.
+     * @param apps the applications for which to compare this one.
      * @return a map containing the differences between the two.
      */
     public Map<String, List<String>> getReconcileMapDiff(Applications apps) {
@@ -328,7 +334,8 @@ public class Applications {
                             + APP_INSTANCEID_DELIMITER
                             + otherInstanceInfo.getStatus().name());
                 }
-                allInstanceAppInstanceIds.remove(new Pair(otherApp.getName(), otherInstanceInfo.getId()));
+                allInstanceAppInstanceIds.remove(new Pair(otherApp.getName(),
+                        otherInstanceInfo.getId()));
             }
         }
         for (Pair pair : allInstanceAppInstanceIds) {
@@ -408,26 +415,42 @@ public class Applications {
 
     /**
      * Shuffles the provided instances so that they will not always be returned in the same order.
+     *
      * @param filterUpInstances whether to return only UP instances
      */
-    public void shuffleInstances(boolean filterUpInstances) {
-        shuffleInstances(filterUpInstances, false, null, null, null);
+    public void shuffleInstances(
+            // true
+            boolean filterUpInstances) {
+
+        shuffleInstances(
+                // true
+                filterUpInstances,
+                false,
+                null,
+                null,
+                null);
     }
 
     /**
      * Shuffles a whole region so that the instances will not always be returned in the same order.
+     *
      * @param remoteRegionsRegistry the map of remote region names to their registries
-     * @param clientConfig the {@link EurekaClientConfig}, whose settings will be used to determine whether to
-     *                     filter to only UP instances
+     * @param clientConfig          the {@link EurekaClientConfig}, whose settings will be used
+     *                              to determine whether to
+     *                              filter to only UP instances
      * @param instanceRegionChecker the instance region checker
      */
     public void shuffleAndIndexInstances(Map<String, Applications> remoteRegionsRegistry,
-                                         EurekaClientConfig clientConfig, InstanceRegionChecker instanceRegionChecker) {
-        shuffleInstances(clientConfig.shouldFilterOnlyUpInstances(), true, remoteRegionsRegistry, clientConfig,
+                                         EurekaClientConfig clientConfig,
+                                         InstanceRegionChecker instanceRegionChecker) {
+        shuffleInstances(clientConfig.shouldFilterOnlyUpInstances(), true, remoteRegionsRegistry,
+                clientConfig,
                 instanceRegionChecker);
     }
 
-    private void shuffleInstances(boolean filterUpInstances, boolean indexByRemoteRegions,
+    private void shuffleInstances(
+            // true
+            boolean filterUpInstances, boolean indexByRemoteRegions,
                                   @Nullable Map<String, Applications> remoteRegionsRegistry,
                                   @Nullable EurekaClientConfig clientConfig,
                                   @Nullable InstanceRegionChecker instanceRegionChecker) {
@@ -435,7 +458,8 @@ public class Applications {
         this.secureVirtualHostNameAppMap.clear();
         for (Application application : appNameApplicationMap.values()) {
             if (indexByRemoteRegions) {
-                application.shuffleAndStoreInstances(remoteRegionsRegistry, clientConfig, instanceRegionChecker);
+                application.shuffleAndStoreInstances(remoteRegionsRegistry, clientConfig,
+                        instanceRegionChecker);
             } else {
                 application.shuffleAndStoreInstances(filterUpInstances);
             }
@@ -453,11 +477,9 @@ public class Applications {
      * Gets the next round-robin index for the given virtual host name. This
      * index is reset after every registry fetch cycle.
      *
-     * @param virtualHostname
-     *            the virtual host name.
-     * @param secure
-     *            indicates whether it is a secure request or a non-secure
-     *            request.
+     * @param virtualHostname the virtual host name.
+     * @param secure          indicates whether it is a secure request or a non-secure
+     *                        request.
      * @return AtomicLong value representing the next round-robin index.
      */
     public AtomicLong getNextIndex(String virtualHostname, boolean secure) {
@@ -471,7 +493,6 @@ public class Applications {
     /**
      * Shuffle the instances and filter for only {@link InstanceStatus#UP} if
      * required.
-     *
      */
     private void shuffleAndFilterInstances(
             Map<String, AbstractQueue<InstanceInfo>> srcMap,
@@ -510,7 +531,6 @@ public class Applications {
      * Add the instance to the given map based if the vip address matches with
      * that of the instance. Note that an instance can be mapped to multiple vip
      * addresses.
-     *
      */
     private void addInstanceToMap(InstanceInfo info, String vipAddresses,
                                   Map<String, AbstractQueue<InstanceInfo>> vipMap) {
@@ -530,6 +550,7 @@ public class Applications {
 
     /**
      * Adds the instances to the internal vip address map.
+     *
      * @param app - the applications for which the instances need to be added.
      */
     private void addInstancesToVIPMaps(Application app) {

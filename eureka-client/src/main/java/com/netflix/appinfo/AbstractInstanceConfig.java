@@ -176,6 +176,7 @@ public abstract class AbstractInstanceConfig implements EurekaInstanceConfig {
      */
     @Override
     public String getHostName(boolean refresh) {
+        // 192.168.1.2
         return hostInfo.second();
     }
 
@@ -214,7 +215,9 @@ public abstract class AbstractInstanceConfig implements EurekaInstanceConfig {
     private static Pair<String, String> getHostInfo() {
         Pair<String, String> pair = new Pair<String, String>("", "");
         try {
+            // 192.168.1.2
             pair.setFirst(InetAddress.getLocalHost().getHostAddress());
+            // 192.168.1.2
             pair.setSecond(InetAddress.getLocalHost().getHostName());
 
         } catch (UnknownHostException e) {

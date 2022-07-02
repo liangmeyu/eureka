@@ -49,11 +49,16 @@ public final class ResolverUtils {
     }
 
     /**
-     * @return returns two element array with first item containing list of endpoints from client's zone,
-     *         and in the second list all the remaining ones
+     * @return returns two element array with first item containing list of endpoints from
+     * client's zone,
+     * and in the second list all the remaining ones
      */
-    public static List<AwsEndpoint>[] splitByZone(List<AwsEndpoint> eurekaEndpoints, String myZone) {
-        if (eurekaEndpoints.isEmpty()) {
+    public static List<AwsEndpoint>[] splitByZone(List<AwsEndpoint> eurekaEndpoints,
+                                                  String myZone) {
+        if (
+            // true
+                eurekaEndpoints.isEmpty()) {
+            // [[],[]]
             return new List[]{Collections.emptyList(), Collections.emptyList()};
         }
         if (myZone == null) {
@@ -85,14 +90,24 @@ public final class ResolverUtils {
      *
      * @return a copy of the original list with elements in the random order
      */
-    public static <T extends EurekaEndpoint> List<T> randomize(List<T> list) {
+    public static <T extends EurekaEndpoint> List<T> randomize(
+            // []
+            List<T> list) {
+        // []
         List<T> randomList = new ArrayList<>(list);
-        if (randomList.size() < 2) {
+        if (
+            // true
+                randomList.size() < 2) {
+            // []
             return randomList;
         }
+
+        //
         Random random = new Random(LOCAL_IPV4_ADDRESS.hashCode());
         int last = randomList.size() - 1;
-        for (int i = 0; i < last; i++) {
+        for (
+                int i = 0;
+                i < last; i++) {
             int pos = random.nextInt(randomList.size() - i);
             if (pos != i) {
                 Collections.swap(randomList, i, pos);
@@ -104,7 +119,8 @@ public final class ResolverUtils {
     /**
      * @return true if both list are the same, possibly in a different order
      */
-    public static <T extends EurekaEndpoint> boolean identical(List<T> firstList, List<T> secondList) {
+    public static <T extends EurekaEndpoint> boolean identical(List<T> firstList,
+                                                               List<T> secondList) {
         if (firstList.size() != secondList.size()) {
             return false;
         }
@@ -125,7 +141,8 @@ public final class ResolverUtils {
         String networkAddress;
         if (transportConfig.applicationsResolverUseIp()) {
             if (instanceInfo.getDataCenterInfo() instanceof AmazonInfo) {
-                networkAddress = ((AmazonInfo) instanceInfo.getDataCenterInfo()).get(AmazonInfo.MetaDataKey.localIpv4);
+                networkAddress =
+                        ((AmazonInfo) instanceInfo.getDataCenterInfo()).get(AmazonInfo.MetaDataKey.localIpv4);
             } else {
                 networkAddress = instanceInfo.getIPAddr();
             }
@@ -134,7 +151,8 @@ public final class ResolverUtils {
         }
 
         if (networkAddress == null) {  // final check
-            logger.error("Cannot resolve InstanceInfo {} to a proper resolver endpoint, skipping", instanceInfo);
+            logger.error("Cannot resolve InstanceInfo {} to a proper resolver endpoint, skipping"
+                    , instanceInfo);
             return null;
         }
 

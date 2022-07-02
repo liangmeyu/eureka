@@ -38,7 +38,8 @@ public class TimedSupervisorTask extends TimerTask {
     private final AtomicLong delay;
     private final long maxDelay;
 
-    public TimedSupervisorTask(String name, ScheduledExecutorService scheduler, ThreadPoolExecutor executor,
+    public TimedSupervisorTask(String name, ScheduledExecutorService scheduler,
+                               ThreadPoolExecutor executor,
                                int timeout, TimeUnit timeUnit, int expBackOffBound, Runnable task) {
         this.scheduler = scheduler;
         this.executor = executor;
@@ -55,6 +56,7 @@ public class TimedSupervisorTask extends TimerTask {
         Monitors.registerObject(name, this);
     }
 
+    @Override
     public void run() {
         Future future = null;
         try {

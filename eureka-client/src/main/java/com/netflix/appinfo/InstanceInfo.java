@@ -1337,10 +1337,13 @@ public class InstanceInfo {
      * @return - The zone in which the particular instance belongs to.
      */
     public static String getZone(String[] availZones, InstanceInfo myInfo) {
+        // defaultZone
         String instanceZone = ((availZones == null || availZones.length == 0) ? "default"
                 : availZones[0]);
         if (myInfo != null
-                && myInfo.getDataCenterInfo().getName() == DataCenterInfo.Name.Amazon) {
+                &&
+                // myInfo.getDataCenterInfo().getName() == MyOwn
+                myInfo.getDataCenterInfo().getName() == DataCenterInfo.Name.Amazon) {
 
             String awsInstanceZone = ((AmazonInfo) myInfo.getDataCenterInfo())
                     .get(AmazonInfo.MetaDataKey.availabilityZone);

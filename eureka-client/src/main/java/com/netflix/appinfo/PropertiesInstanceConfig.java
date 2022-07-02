@@ -46,7 +46,6 @@ import static com.netflix.appinfo.PropertyBasedInstanceConfigConstants.*;
  * </p>
  *
  * @author Karthik Ranganathan
- *
  */
 public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig implements EurekaInstanceConfig {
 
@@ -70,12 +69,11 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
     public PropertiesInstanceConfig(String namespace, DataCenterInfo info) {
         super(info);
 
-        this.namespace = namespace.endsWith(".")
-                ? namespace
-                : namespace + ".";
+        this.namespace = namespace.endsWith(".") ? namespace : namespace + ".";
 
-        appGrpNameFromEnv = ConfigurationManager.getConfigInstance()
-                .getString(FALLBACK_APP_GROUP_KEY, Values.UNKNOWN_APPLICATION);
+        appGrpNameFromEnv =
+                ConfigurationManager.getConfigInstance().getString(FALLBACK_APP_GROUP_KEY,
+                        Values.UNKNOWN_APPLICATION);
 
         this.configInstance = Archaius1Utils.initConfig(CommonConstants.CONFIG_FILE_NAME);
     }
@@ -87,6 +85,9 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
      */
     @Override
     public boolean isInstanceEnabledOnit() {
+        // eureka.traffic.enabled
+        // false
+        // eureka.traffic.enabled = false
         return configInstance.getBooleanProperty(namespace + TRAFFIC_ENABLED_ON_INIT_KEY,
                 super.isInstanceEnabledOnit()).get();
     }
@@ -98,6 +99,9 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
      */
     @Override
     public int getNonSecurePort() {
+        // propName:eureka.port
+        // defaultPropName:80
+        // eureka.port = 8080
         return configInstance.getIntProperty(namespace + PORT_KEY, super.getNonSecurePort()).get();
     }
 
@@ -108,7 +112,10 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
      */
     @Override
     public int getSecurePort() {
-        return configInstance.getIntProperty(namespace + SECURE_PORT_KEY, super.getSecurePort()) .get();
+        // eureka.securePort
+        // 443
+        // eureka.securePort = 443
+        return configInstance.getIntProperty(namespace + SECURE_PORT_KEY, super.getSecurePort()).get();
     }
 
     /*
@@ -118,7 +125,11 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
      */
     @Override
     public boolean isNonSecurePortEnabled() {
-        return configInstance.getBooleanProperty(namespace + PORT_ENABLED_KEY, super.isNonSecurePortEnabled()).get();
+        // propName:eureka.port.enabled
+        // defaultPropValue: true
+        // eureka.port.enabled = true
+        return configInstance.getBooleanProperty(namespace + PORT_ENABLED_KEY,
+                super.isNonSecurePortEnabled()).get();
     }
 
     /*
@@ -128,6 +139,9 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
      */
     @Override
     public boolean getSecurePortEnabled() {
+        // eureka.securePort.enabled
+        // false
+        // eureka.securePort.enabled = false
         return configInstance.getBooleanProperty(namespace + SECURE_PORT_ENABLED_KEY,
                 super.getSecurePortEnabled()).get();
     }
@@ -213,9 +227,8 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
         String metadataNamespace = namespace + INSTANCE_METADATA_PREFIX + ".";
         Map<String, String> metadataMap = new LinkedHashMap<String, String>();
         Configuration config = (Configuration) configInstance.getBackingConfigurationSource();
-        String subsetPrefix = metadataNamespace.charAt(metadataNamespace.length() - 1) == '.'
-                ? metadataNamespace.substring(0, metadataNamespace.length() - 1)
-                : metadataNamespace;
+        String subsetPrefix = metadataNamespace.charAt(metadataNamespace.length() - 1) == '.' ?
+                metadataNamespace.substring(0, metadataNamespace.length() - 1) : metadataNamespace;
         for (Iterator<String> iter = config.subset(subsetPrefix).getKeys(); iter.hasNext(); ) {
             String key = iter.next();
             String value = config.getString(subsetPrefix + "." + key);
@@ -226,17 +239,27 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
 
     @Override
     public String getInstanceId() {
+        // eureka.instanceId
+        // null
+        // eureka.instanceId = null
         String result = configInstance.getStringProperty(namespace + INSTANCE_ID_KEY, null).get();
         return result == null ? null : result.trim();
     }
 
     @Override
     public String getAppname() {
-        return configInstance.getStringProperty(namespace + APP_NAME_KEY, Values.UNKNOWN_APPLICATION).get().trim();
+        // propName : eureka.name
+        // defaultPropValue : unknown
+        // eureka.name=eureka
+        return configInstance.getStringProperty(namespace + APP_NAME_KEY,
+                Values.UNKNOWN_APPLICATION).get().trim();
     }
 
     @Override
     public String getAppGroupName() {
+        // propName:eureka.appGroup
+        // defaultPropName:
+        // eureka.appGroup =
         return configInstance.getStringProperty(namespace + APP_GROUP_KEY, appGrpNameFromEnv).get().trim();
     }
 
@@ -253,8 +276,7 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
 
     @Override
     public String getStatusPageUrl() {
-        return configInstance.getStringProperty(namespace + STATUS_PAGE_URL_KEY, null)
-                .get();
+        return configInstance.getStringProperty(namespace + STATUS_PAGE_URL_KEY, null).get();
     }
 
 
@@ -266,8 +288,7 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
 
     @Override
     public String getHomePageUrl() {
-        return configInstance.getStringProperty(namespace + HOME_PAGE_URL_KEY, null)
-                .get();
+        return configInstance.getStringProperty(namespace + HOME_PAGE_URL_KEY, null).get();
     }
 
     @Override
@@ -278,19 +299,19 @@ public abstract class PropertiesInstanceConfig extends AbstractInstanceConfig im
 
     @Override
     public String getHealthCheckUrl() {
-        return configInstance.getStringProperty(namespace + HEALTHCHECK_URL_KEY, null)
-                .get();
+        return configInstance.getStringProperty(namespace + HEALTHCHECK_URL_KEY, null).get();
     }
 
     @Override
     public String getSecureHealthCheckUrl() {
-        return configInstance.getStringProperty(namespace + SECURE_HEALTHCHECK_URL_KEY,
-                null).get();
+        return configInstance.getStringProperty(namespace + SECURE_HEALTHCHECK_URL_KEY, null).get();
     }
 
     @Override
     public String[] getDefaultAddressResolutionOrder() {
-        String result = configInstance.getStringProperty(namespace + DEFAULT_ADDRESS_RESOLUTION_ORDER_KEY, null).get();
+        String result =
+                configInstance.getStringProperty(namespace + DEFAULT_ADDRESS_RESOLUTION_ORDER_KEY
+                        , null).get();
         return result == null ? new String[0] : result.split(",");
     }
 

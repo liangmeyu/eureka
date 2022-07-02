@@ -43,7 +43,6 @@ import org.slf4j.LoggerFactory;
  * <p>
  *
  * @author Karthik Ranganathan, Greg Kim
- *
  */
 public class PeerEurekaNode {
 
@@ -83,16 +82,27 @@ public class PeerEurekaNode {
     private final TaskDispatcher<String, ReplicationTask> batchingDispatcher;
     private final TaskDispatcher<String, ReplicationTask> nonBatchingDispatcher;
 
-    public PeerEurekaNode(PeerAwareInstanceRegistry registry, String targetHost, String serviceUrl, HttpReplicationClient replicationClient, EurekaServerConfig config) {
-        this(registry, targetHost, serviceUrl, replicationClient, config, BATCH_SIZE, MAX_BATCHING_DELAY_MS, RETRY_SLEEP_TIME_MS, SERVER_UNAVAILABLE_SLEEP_TIME_MS);
+    public PeerEurekaNode(PeerAwareInstanceRegistry registry, String targetHost,
+                          String serviceUrl, HttpReplicationClient replicationClient,
+                          EurekaServerConfig config) {
+        this(registry, targetHost, serviceUrl, replicationClient, config, BATCH_SIZE,
+                // 500
+                MAX_BATCHING_DELAY_MS, RETRY_SLEEP_TIME_MS, SERVER_UNAVAILABLE_SLEEP_TIME_MS);
     }
 
-    /* For testing */ PeerEurekaNode(PeerAwareInstanceRegistry registry, String targetHost, String serviceUrl,
-                                     HttpReplicationClient replicationClient, EurekaServerConfig config,
-                                     int batchSize, long maxBatchingDelayMs,
+    /* For testing */ PeerEurekaNode(PeerAwareInstanceRegistry registry, String targetHost,
+                                     String serviceUrl,
+                                     HttpReplicationClient replicationClient,
+                                     EurekaServerConfig config,
+                                     int batchSize,
+                                     // 500
+                                     long maxBatchingDelayMs,
                                      long retrySleepTimeMs, long serverUnavailableSleepTimeMs) {
         this.registry = registry;
         this.targetHost = targetHost;
+        /**
+         * 对应serviceUrl的同步客户端
+         */
         this.replicationClient = replicationClient;
 
         this.serviceUrl = serviceUrl;
@@ -100,20 +110,29 @@ public class PeerEurekaNode {
         this.maxProcessingDelayMs = config.getMaxTimeForReplication();
 
         String batcherName = getBatcherName();
-        ReplicationTaskProcessor taskProcessor = new ReplicationTaskProcessor(targetHost, replicationClient);
+        /**
+         * 同步任务处理器
+         */
+        ReplicationTaskProcessor taskProcessor = new ReplicationTaskProcessor(targetHost,
+                replicationClient);
+        // 批处理调度器
         this.batchingDispatcher = TaskDispatchers.createBatchingTaskDispatcher(
                 batcherName,
                 config.getMaxElementsInPeerReplicationPool(),
                 batchSize,
                 config.getMaxThreadsForPeerReplication(),
+                // 500
                 maxBatchingDelayMs,
                 serverUnavailableSleepTimeMs,
                 retrySleepTimeMs,
+                // 同步任务处理器
                 taskProcessor
         );
         this.nonBatchingDispatcher = TaskDispatchers.createNonBatchingTaskDispatcher(
                 targetHost,
+                // 10000
                 config.getMaxElementsInStatusReplicationPool(),
+                // 1
                 config.getMaxThreadsForStatusReplication(),
                 maxBatchingDelayMs,
                 serverUnavailableSleepTimeMs,
@@ -126,16 +145,18 @@ public class PeerEurekaNode {
      * Sends the registration information of {@link InstanceInfo} receiving by
      * this node to the peer node represented by this class.
      *
-     * @param info
-     *            the instance information {@link InstanceInfo} of any instance
-     *            that is send to this instance.
+     * @param info the instance information {@link InstanceInfo} of any instance
+     *             that is send to this instance.
      * @throws Exception
      */
     public void register(final InstanceInfo info) throws Exception {
         long expiryTime = System.currentTimeMillis() + getLeaseRenewalOf(info);
+        // 调用批处理分发器，封装注册、下线、心跳、故障等行为到命令对象中
         batchingDispatcher.process(
                 taskId("register", info),
+                // 封装命令（实例同步任务）
                 new InstanceReplicationTask(targetHost, Action.Register, info, null, true) {
+                    @Override
                     public EurekaHttpResponse<Void> execute() {
                         return replicationClient.register(info);
                     }
@@ -148,10 +169,8 @@ public class PeerEurekaNode {
      * Send the cancellation information of an instance to the node represented
      * by this class.
      *
-     * @param appName
-     *            the application name of the instance.
-     * @param id
-     *            the unique identifier of the instance.
+     * @param appName the application name of the instance.
+     * @param id      the unique identifier of the instance.
      * @throws Exception
      */
     public void cancel(final String appName, final String id) throws Exception {
@@ -181,14 +200,10 @@ public class PeerEurekaNode {
      * this class. If the instance does not exist the node, the instance
      * registration information is sent again to the peer node.
      *
-     * @param appName
-     *            the application name of the instance.
-     * @param id
-     *            the unique identifier of the instance.
-     * @param info
-     *            the instance info {@link InstanceInfo} of the instance.
-     * @param overriddenStatus
-     *            the overridden status information if any of the instance.
+     * @param appName          the application name of the instance.
+     * @param id               the unique identifier of the instance.
+     * @param info             the instance info {@link InstanceInfo} of the instance.
+     * @param overriddenStatus the overridden status information if any of the instance.
      * @throws Throwable
      */
     public void heartbeat(final String appName, final String id,
@@ -199,7 +214,8 @@ public class PeerEurekaNode {
             replicationClient.sendHeartBeat(appName, id, info, overriddenStatus);
             return;
         }
-        ReplicationTask replicationTask = new InstanceReplicationTask(targetHost, Action.Heartbeat, info, overriddenStatus, false) {
+        ReplicationTask replicationTask = new InstanceReplicationTask(targetHost,
+                Action.Heartbeat, info, overriddenStatus, false) {
             @Override
             public EurekaHttpResponse<InstanceInfo> execute() throws Throwable {
                 return replicationClient.sendHeartBeat(appName, id, info, overriddenStatus);
@@ -211,7 +227,8 @@ public class PeerEurekaNode {
                 if (statusCode == 404) {
                     logger.warn("{}: missing entry.", getTaskName());
                     if (info != null) {
-                        logger.warn("{}: cannot find instance id {} and hence replicating the instance with status {}",
+                        logger.warn("{}: cannot find instance id {} and hence replicating the " +
+                                        "instance with status {}",
                                 getTaskName(), info.getId(), info.getStatus());
                         register(info);
                     }
@@ -235,10 +252,8 @@ public class PeerEurekaNode {
      * ASG information is used for determining if the instance should be
      * registered as {@link InstanceStatus#DOWN} or {@link InstanceStatus#UP}.
      *
-     * @param asgName
-     *            the asg name if any of this instance.
-     * @param newStatus
-     *            the new status of the ASG.
+     * @param asgName   the asg name if any of this instance.
+     * @param newStatus the new status of the ASG.
      */
     public void statusUpdate(final String asgName, final ASGStatus newStatus) {
         long expiryTime = System.currentTimeMillis() + maxProcessingDelayMs;
@@ -254,17 +269,12 @@ public class PeerEurekaNode {
     }
 
     /**
-     *
      * Send the status update of the instance.
      *
-     * @param appName
-     *            the application name of the instance.
-     * @param id
-     *            the unique identifier of the instance.
-     * @param newStatus
-     *            the new status of the instance.
-     * @param info
-     *            the instance information of the instance.
+     * @param appName   the application name of the instance.
+     * @param id        the unique identifier of the instance.
+     * @param newStatus the new status of the instance.
+     * @param info      the instance information of the instance.
      */
     public void statusUpdate(final String appName, final String id,
                              final InstanceStatus newStatus, final InstanceInfo info) {
@@ -284,18 +294,17 @@ public class PeerEurekaNode {
     /**
      * Delete instance status override.
      *
-     * @param appName
-     *            the application name of the instance.
-     * @param id
-     *            the unique identifier of the instance.
-     * @param info
-     *            the instance information of the instance.
+     * @param appName the application name of the instance.
+     * @param id      the unique identifier of the instance.
+     * @param info    the instance information of the instance.
      */
-    public void deleteStatusOverride(final String appName, final String id, final InstanceInfo info) {
+    public void deleteStatusOverride(final String appName, final String id,
+                                     final InstanceInfo info) {
         long expiryTime = System.currentTimeMillis() + maxProcessingDelayMs;
         batchingDispatcher.process(
                 taskId("deleteStatusOverride", appName, id),
-                new InstanceReplicationTask(targetHost, Action.DeleteStatusOverride, info, null, false) {
+                new InstanceReplicationTask(targetHost, Action.DeleteStatusOverride, info, null,
+                        false) {
                     @Override
                     public EurekaHttpResponse<Void> execute() {
                         return replicationClient.deleteStatusOverride(appName, id, info);
@@ -355,15 +364,20 @@ public class PeerEurekaNode {
      * Synchronize {@link InstanceInfo} information if the timestamp between
      * this node and the peer eureka nodes vary.
      */
-    private void syncInstancesIfTimestampDiffers(String appName, String id, InstanceInfo info, InstanceInfo infoFromPeer) {
+    private void syncInstancesIfTimestampDiffers(String appName, String id, InstanceInfo info,
+                                                 InstanceInfo infoFromPeer) {
         try {
             if (infoFromPeer != null) {
-                logger.warn("Peer wants us to take the instance information from it, since the timestamp differs,"
-                        + "Id : {} My Timestamp : {}, Peer's timestamp: {}", id, info.getLastDirtyTimestamp(), infoFromPeer.getLastDirtyTimestamp());
+                logger.warn("Peer wants us to take the instance information from it, since the " +
+                                "timestamp differs,"
+                                + "Id : {} My Timestamp : {}, Peer's timestamp: {}", id,
+                        info.getLastDirtyTimestamp(), infoFromPeer.getLastDirtyTimestamp());
 
                 if (infoFromPeer.getOverriddenStatus() != null && !InstanceStatus.UNKNOWN.equals(infoFromPeer.getOverriddenStatus())) {
-                    logger.warn("Overridden Status info -id {}, mine {}, peer's {}", id, info.getOverriddenStatus(), infoFromPeer.getOverriddenStatus());
-                    registry.storeOverriddenStatusIfRequired(appName, id, infoFromPeer.getOverriddenStatus());
+                    logger.warn("Overridden Status info -id {}, mine {}, peer's {}", id,
+                            info.getOverriddenStatus(), infoFromPeer.getOverriddenStatus());
+                    registry.storeOverriddenStatusIfRequired(appName, id,
+                            infoFromPeer.getOverriddenStatus());
                 }
                 registry.register(infoFromPeer, true);
             }
@@ -391,6 +405,7 @@ public class PeerEurekaNode {
     }
 
     private static int getLeaseRenewalOf(InstanceInfo info) {
-        return (info.getLeaseInfo() == null ? Lease.DEFAULT_DURATION_IN_SECS : info.getLeaseInfo().getRenewalIntervalInSecs()) * 1000;
+        return (info.getLeaseInfo() == null ? Lease.DEFAULT_DURATION_IN_SECS :
+                info.getLeaseInfo().getRenewalIntervalInSecs()) * 1000;
     }
 }

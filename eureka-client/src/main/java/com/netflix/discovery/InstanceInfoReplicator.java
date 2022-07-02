@@ -59,6 +59,11 @@ class InstanceInfoReplicator implements Runnable {
         logger.info("InstanceInfoReplicator onDemand update allowed rate per min is {}", allowedRatePerMinute);
     }
 
+    /**
+     * 1. 设置dirty标志
+     * 2. 加入调度任务
+     * @param initialDelayMs
+     */
     public void start(int initialDelayMs) {
         if (started.compareAndSet(false, true)) {
             instanceInfo.setIsDirty();  // for initial register
@@ -100,10 +105,16 @@ class InstanceInfoReplicator implements Runnable {
         }
     }
 
+    /**
+     * 服务实例信息复制器线程逻辑
+     */
+    @Override
     public void run() {
         try {
+            // 刷新instanceInfo（数据中心、租约、服务实例状态）
             discoveryClient.refreshInstanceInfo();
 
+            // 向注册中心注册服务
             Long dirtyTimestamp = instanceInfo.isDirtyWithTime();
             if (dirtyTimestamp != null) {
                 discoveryClient.register();

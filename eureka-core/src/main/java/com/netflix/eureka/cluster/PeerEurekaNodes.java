@@ -48,12 +48,9 @@ public class PeerEurekaNodes {
     private ScheduledExecutorService taskExecutor;
 
     @Inject
-    public PeerEurekaNodes(
-            PeerAwareInstanceRegistry registry,
-            EurekaServerConfig serverConfig,
-            EurekaClientConfig clientConfig,
-            ServerCodecs serverCodecs,
-            ApplicationInfoManager applicationInfoManager) {
+    public PeerEurekaNodes(PeerAwareInstanceRegistry registry, EurekaServerConfig serverConfig,
+                           EurekaClientConfig clientConfig, ServerCodecs serverCodecs,
+                           ApplicationInfoManager applicationInfoManager) {
         this.registry = registry;
         this.serverConfig = serverConfig;
         this.clientConfig = clientConfig;
@@ -68,24 +65,29 @@ public class PeerEurekaNodes {
     public List<PeerEurekaNode> getPeerEurekaNodes() {
         return peerEurekaNodes;
     }
-    
+
     public int getMinNumberOfAvailablePeers() {
         return serverConfig.getHealthStatusMinNumberOfAvailablePeers();
     }
 
+    /**
+     * 启动eureka server集群
+     * 定时更新eureka server集群的信息的任务（updatePeerEurekaNodes）
+     */
     public void start() {
-        taskExecutor = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactory() {
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread thread = new Thread(r, "Eureka-PeerNodesUpdater");
-                        thread.setDaemon(true);
-                        return thread;
-                    }
-                }
-        );
+        taskExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r, "Eureka-PeerNodesUpdater");
+                thread.setDaemon(true);
+                return thread;
+            }
+        });
         try {
+            // 更新 eureka-server 集群信息，让当前的eureka server感知到所有的其他的eureka server
             updatePeerEurekaNodes(resolvePeerUrls());
+
+            // 定时更新eureka server集群的信息的任务
             Runnable peersUpdateTask = new Runnable() {
                 @Override
                 public void run() {
@@ -97,12 +99,11 @@ public class PeerEurekaNodes {
 
                 }
             };
-            taskExecutor.scheduleWithFixedDelay(
-                    peersUpdateTask,
+            // 定时更新eureka server集群的信息。
+            taskExecutor.scheduleWithFixedDelay(peersUpdateTask,
+                    // eureka.peerEurekaNodesUpdateIntervalMs = 10分钟
                     serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
-                    serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
-                    TimeUnit.MILLISECONDS
-            );
+                    serverConfig.getPeerEurekaNodesUpdateIntervalMs(), TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -130,9 +131,11 @@ public class PeerEurekaNodes {
      */
     protected List<String> resolvePeerUrls() {
         InstanceInfo myInfo = applicationInfoManager.getInfo();
-        String zone = InstanceInfo.getZone(clientConfig.getAvailabilityZones(clientConfig.getRegion()), myInfo);
-        List<String> replicaUrls = EndpointUtils
-                .getDiscoveryServiceUrls(clientConfig, zone, new EndpointUtils.InstanceInfoBasedUrlRandomizer(myInfo));
+        String zone =
+                InstanceInfo.getZone(clientConfig.getAvailabilityZones(clientConfig.getRegion()),
+                        myInfo);
+        List<String> replicaUrls = EndpointUtils.getDiscoveryServiceUrls(clientConfig, zone,
+                new EndpointUtils.InstanceInfoBasedUrlRandomizer(myInfo));
 
         int idx = 0;
         while (idx < replicaUrls.size()) {
@@ -159,6 +162,7 @@ public class PeerEurekaNodes {
 
         Set<String> toShutdown = new HashSet<>(peerEurekaNodeUrls);
         toShutdown.removeAll(newPeerUrls);
+
         Set<String> toAdd = new HashSet<>(newPeerUrls);
         toAdd.removeAll(peerEurekaNodeUrls);
 
@@ -196,25 +200,27 @@ public class PeerEurekaNodes {
     }
 
     protected PeerEurekaNode createPeerEurekaNode(String peerEurekaNodeUrl) {
-        HttpReplicationClient replicationClient = JerseyReplicationClient.createReplicationClient(serverConfig, serverCodecs, peerEurekaNodeUrl);
+        HttpReplicationClient replicationClient =
+                JerseyReplicationClient.createReplicationClient(serverConfig, serverCodecs,
+                        peerEurekaNodeUrl);
         String targetHost = hostFromUrl(peerEurekaNodeUrl);
         if (targetHost == null) {
             targetHost = "host";
         }
-        return new PeerEurekaNode(registry, targetHost, peerEurekaNodeUrl, replicationClient, serverConfig);
+        return new PeerEurekaNode(registry, targetHost, peerEurekaNodeUrl, replicationClient,
+                serverConfig);
     }
 
     /**
+     * @param url the service url of the replica node that the check is made.
+     * @return true, if the url represents the current node which is trying to
+     * replicate, false otherwise.
      * @deprecated 2016-06-27 use instance version of {@link #isThisMyUrl(String)}
-     *
+     * <p>
      * Checks if the given service url contains the current host which is trying
      * to replicate. Only after the EIP binding is done the host has a chance to
      * identify itself in the list of replica nodes and needs to take itself out
      * of replication traffic.
-     *
-     * @param url the service url of the replica node that the check is made.
-     * @return true, if the url represents the current node which is trying to
-     *         replicate, false otherwise.
      */
     public static boolean isThisMe(String url) {
         InstanceInfo myInfo = ApplicationInfoManager.getInstance().getInfo();
@@ -230,16 +236,16 @@ public class PeerEurekaNodes {
      *
      * @param url the service url of the replica node that the check is made.
      * @return true, if the url represents the current node which is trying to
-     *         replicate, false otherwise.
+     * replicate, false otherwise.
      */
     public boolean isThisMyUrl(String url) {
         return isInstanceURL(url, applicationInfoManager.getInfo());
     }
-    
+
     /**
      * Checks if the given service url matches the supplied instance
      *
-     * @param url the service url of the replica node that the check is made.
+     * @param url      the service url of the replica node that the check is made.
      * @param instance the instance to check the service url against
      * @return true, if the url represents the supplied instance, false otherwise.
      */

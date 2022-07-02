@@ -19,8 +19,10 @@ import org.slf4j.LoggerFactory;
 import static com.netflix.eureka.Names.METRIC_REPLICATION_PREFIX;
 
 /**
- * {@link TaskExecutors} instance holds a number of worker threads that cooperate with {@link AcceptorExecutor}.
- * Each worker sends a job request to {@link AcceptorExecutor} whenever it is available, and processes it once
+ * {@link TaskExecutors} instance holds a number of worker threads that cooperate with
+ * {@link AcceptorExecutor}.
+ * Each worker sends a job request to {@link AcceptorExecutor} whenever it is available, and
+ * processes it once
  * provided with a task(s).
  *
  * @author Tomasz Bak
@@ -32,7 +34,8 @@ class TaskExecutors<ID, T> {
     private final AtomicBoolean isShutdown;
     private final List<Thread> workerThreads;
 
-    TaskExecutors(WorkerRunnableFactory<ID, T> workerRunnableFactory, int workerCount, AtomicBoolean isShutdown) {
+    TaskExecutors(WorkerRunnableFactory<ID, T> workerRunnableFactory, int workerCount,
+                  AtomicBoolean isShutdown) {
         this.isShutdown = isShutdown;
         this.workerThreads = new ArrayList<>();
 
@@ -63,7 +66,8 @@ class TaskExecutors<ID, T> {
         return new TaskExecutors<>(new WorkerRunnableFactory<ID, T>() {
             @Override
             public WorkerRunnable<ID, T> create(int idx) {
-                return new SingleTaskWorkerRunnable<>("TaskNonBatchingWorker-" + name + '-' + idx, isShutdown, metrics, processor, acceptorExecutor);
+                return new SingleTaskWorkerRunnable<>("TaskNonBatchingWorker-" + name + '-' + idx
+                        , isShutdown, metrics, processor, acceptorExecutor);
             }
         }, workerCount, isShutdown);
     }
@@ -77,20 +81,24 @@ class TaskExecutors<ID, T> {
         return new TaskExecutors<>(new WorkerRunnableFactory<ID, T>() {
             @Override
             public WorkerRunnable<ID, T> create(int idx) {
-                return new BatchWorkerRunnable<>("TaskBatchingWorker-" +name + '-' + idx, isShutdown, metrics, processor, acceptorExecutor);
+                return new BatchWorkerRunnable<>("TaskBatchingWorker-" + name + '-' + idx,
+                        isShutdown, metrics, processor, acceptorExecutor);
             }
         }, workerCount, isShutdown);
     }
 
     static class TaskExecutorMetrics {
 
-        @Monitor(name = METRIC_REPLICATION_PREFIX + "numberOfSuccessfulExecutions", description = "Number of successful task executions", type = DataSourceType.COUNTER)
+        @Monitor(name = METRIC_REPLICATION_PREFIX + "numberOfSuccessfulExecutions", description =
+                "Number of successful task executions", type = DataSourceType.COUNTER)
         volatile long numberOfSuccessfulExecutions;
 
-        @Monitor(name = METRIC_REPLICATION_PREFIX + "numberOfTransientErrors", description = "Number of transient task execution errors", type = DataSourceType.COUNTER)
+        @Monitor(name = METRIC_REPLICATION_PREFIX + "numberOfTransientErrors", description =
+                "Number of transient task execution errors", type = DataSourceType.COUNTER)
         volatile long numberOfTransientError;
 
-        @Monitor(name = METRIC_REPLICATION_PREFIX + "numberOfPermanentErrors", description = "Number of permanent task execution errors", type = DataSourceType.COUNTER)
+        @Monitor(name = METRIC_REPLICATION_PREFIX + "numberOfPermanentErrors", description =
+                "Number of permanent task execution errors", type = DataSourceType.COUNTER)
         volatile long numberOfPermanentError;
 
         final StatsTimer taskWaitingTimeForProcessing;
@@ -102,7 +110,8 @@ class TaskExecutors<ID, T> {
                     .withPercentiles(percentiles)
                     .withPublishStdDev(true)
                     .build();
-            final MonitorConfig config = MonitorConfig.builder(METRIC_REPLICATION_PREFIX + "executionTime").build();
+            final MonitorConfig config = MonitorConfig.builder(METRIC_REPLICATION_PREFIX +
+                    "executionTime").build();
             taskWaitingTimeForProcessing = new StatsTimer(config, statsConfig);
 
             try {
@@ -133,7 +142,8 @@ class TaskExecutors<ID, T> {
         <ID, T> void registerExpiryTimes(List<TaskHolder<ID, T>> holders) {
             long now = System.currentTimeMillis();
             for (TaskHolder<ID, T> holder : holders) {
-                taskWaitingTimeForProcessing.record(now - holder.getSubmitTimestamp(), TimeUnit.MILLISECONDS);
+                taskWaitingTimeForProcessing.record(now - holder.getSubmitTimestamp(),
+                        TimeUnit.MILLISECONDS);
             }
         }
     }
@@ -176,24 +186,31 @@ class TaskExecutors<ID, T> {
             super(workerName, isShutdown, metrics, processor, acceptorExecutor);
         }
 
+        /**
+         * 获取批处理任务，并提交任务
+         */
         @Override
         public void run() {
             try {
                 while (!isShutdown.get()) {
+                    // 给予信号量【batchWorkRequests】权限，并获取【批处理任务】
                     List<TaskHolder<ID, T>> holders = getWork();
                     metrics.registerExpiryTimes(holders);
 
                     List<T> tasks = getTasksOf(holders);
+                    // 提交批处理任务
                     ProcessingResult result = processor.process(tasks);
                     switch (result) {
                         case Success:
                             break;
                         case Congestion:
                         case TransientError:
+                            // 批处理任务返回 瞬断错误（网络）时，需要放入reprocessQueue队列中，重新发送
                             taskDispatcher.reprocess(holders, result);
                             break;
                         case PermanentError:
-                            logger.warn("Discarding {} tasks of {} due to permanent error", holders.size(), workerName);
+                            logger.warn("Discarding {} tasks of {} due to permanent error",
+                                    holders.size(), workerName);
                     }
                     metrics.registerTaskResult(result, tasks.size());
                 }
@@ -205,10 +222,18 @@ class TaskExecutors<ID, T> {
             }
         }
 
+        /**
+         * 给予信号量【batchWorkRequests】权限，并获取【批处理任务】
+         *
+         * @return
+         * @throws InterruptedException
+         */
         private List<TaskHolder<ID, T>> getWork() throws InterruptedException {
+            // 给予信号量【batchWorkRequests】权限
             BlockingQueue<List<TaskHolder<ID, T>>> workQueue = taskDispatcher.requestWorkItems();
             List<TaskHolder<ID, T>> result;
             do {
+                // 获取【批处理任务】
                 result = workQueue.poll(1, TimeUnit.SECONDS);
             } while (!isShutdown.get() && result == null);
             return result;
@@ -255,7 +280,8 @@ class TaskExecutors<ID, T> {
                                 taskDispatcher.reprocess(taskHolder, result);
                                 break;
                             case PermanentError:
-                                logger.warn("Discarding a task of {} due to permanent error", workerName);
+                                logger.warn("Discarding a task of {} due to permanent error",
+                                        workerName);
                         }
                         metrics.registerTaskResult(result, 1);
                     }

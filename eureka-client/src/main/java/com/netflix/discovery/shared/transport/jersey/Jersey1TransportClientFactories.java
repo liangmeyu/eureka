@@ -45,12 +45,17 @@ public class Jersey1TransportClientFactories implements TransportClientFactories
     public TransportClientFactory newTransportClientFactory(final EurekaClientConfig clientConfig,
                                                                    final Collection<ClientFilter> additionalFilters,
                                                                    final InstanceInfo myInstanceInfo) {
+        // 获取 jerseyFactory，生产JerseyApplicationClient。
+        // JerseyApplicationClient：负责发送http请求到eureka server的网络客户端
         final TransportClientFactory jerseyFactory = JerseyEurekaHttpClientFactory.create(
                 clientConfig,
                 additionalFilters,
                 myInstanceInfo,
                 new EurekaClientIdentity(myInstanceInfo.getIPAddr())
         );
+
+        // 获取 metricsFactory，装饰 jerseyFactory。
+        // MetricsCollectingEurekaHttpClient：为 JerseyApplicationClient 增加面板信息统计的能力
         final TransportClientFactory metricsFactory = MetricsCollectingEurekaHttpClient.createFactory(jerseyFactory);
 
         return new TransportClientFactory() {
